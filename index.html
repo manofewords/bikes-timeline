@@ -89,7 +89,7 @@
   .chart-container { background: var(--surface-card); border-radius: 12px; overflow: auto; max-height: calc(100vh - 80px); position: relative; }
   .chart-container > svg { display: block; }
   .controls svg, .tooltip svg { display: inline-block; }
-  svg text { fill: var(--text-secondary); font-size: 11px; }
+  .chart-container svg text { fill: var(--text-secondary); font-size: 11px; }
   .year-grid line { stroke: var(--gridline); stroke-width: 1; }
   .year-grid text { fill: var(--text-muted); font-variant-numeric: tabular-nums; }
   .today-line { stroke: var(--text-muted); stroke-dasharray: 3 3; }
@@ -126,6 +126,17 @@
   .parts-table th { color: var(--text-secondary); font-weight: 600; }
   .parts-table td.usage-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .data-warnings { color: var(--text-secondary); font-size: 12px; margin-top: 8px; }
+
+  /* ---------- print: A2 landscape poster ---------- */
+  #print-poster { display: none; }
+  @page { size: 594mm 420mm; margin: 10mm; }
+  @media print {
+    html, body { background: #fff; }
+    .viz-root { padding: 0; min-height: 0; background: #fff; }
+    .viz-root > :not(#print-poster) { display: none !important; }
+    #print-poster { display: block; overflow: hidden; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #print-poster svg { display: block; }
+  }
 </style>
 </head>
 <body>
@@ -141,6 +152,7 @@
     <label>Zoom <input type="range" id="zoom-slider" min="28" max="200" value="64"> <span id="zoom-value-label"></span></label>
     <button class="button" id="load-json-button">Load JSON…</button><input type="file" id="json-file-input" accept="application/json,.json">
     <button class="button" id="copy-json-button">Copy JSON</button>
+    <button class="button" id="print-poster-button">Print A2 poster</button>
     <span id="status-legend"></span>
   </div>
 
@@ -154,6 +166,7 @@
     <table class="parts-table" id="parts-table"></table>
   </details>
   <div class="tooltip" id="tooltip"></div>
+  <div id="print-poster"></div>
 </div>
 
 <script type="application/json" id="bike-data">{"bikes": [{"id": "d5714710-1670-57d9-b06e-51116ca57bb6", "type": "bmx", "name": "Haro Backtrail X1"}, {"id": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "type": "bmx", "name": "WeThePeople Crysis"}, {"id": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "type": "bmx", "name": "Cult Gateway"}, {"id": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "type": "bmx", "name": "S&M ATF"}, {"id": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "type": "bmx", "name": "Fit STR"}, {"id": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "type": "mtb", "name": "Kona Cinder Cone"}, {"id": "944175d9-e328-57dc-8211-6ce42073a530", "type": "mtb", "name": "Stumpjumper FSR 29"}, {"id": "5f780220-959d-508b-bc62-5ec091fe95fd", "type": "mtb", "name": "Nukeproof Mega 290"}, {"id": "fdb548df-8dd9-50ee-b4ff-559508273399", "type": "mtb", "name": "NS Decade"}, {"id": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "type": "mtb", "name": "Production Privée Shan No.5"}, {"id": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "type": "dh", "name": "Commencal Supreme DH V3"}, {"id": "937821c4-035a-523a-9e88-62f28805bf0e", "type": "dh", "name": "Santa Cruz V10"}, {"id": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "type": "gravel", "name": "Bombtrack Hook EXT"}], "parts": [{"id": "fb4fddc3-3141-53dd-a802-601ecb1f221f", "type": "frame", "details": "Haro Backtrail X1 frame 20.5\"", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "1278e760-de3b-5e9a-b70b-002cf7c71994", "type": "fork", "details": "Haro stock CrMo fork", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "162b251a-65a9-5962-853f-3e7ac58d89d1", "type": "wheel", "details": "Haro stock front wheel 36H", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "72314cf7-a5f7-5b5c-a366-75ca8b559102", "type": "wheel", "details": "Haro stock rear wheel 36H", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2010-04-10"}]}, {"id": "bbfbbc1f-4072-528b-9347-b51ef944d196", "type": "wheel", "details": "Odyssey Hazard Lite rear wheel", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2010-04-10", "dateTo": "2011-06-04"}, {"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2013-08-17"}]}, {"id": "1eb0a0d7-9629-5c42-bf25-2272a0bf8071", "type": "stem", "details": "Haro top-load stem", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "3c8557cc-41fd-52a7-adf6-419cd91bafea", "type": "handlebar", "details": "Haro 8.5\" bars", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "f13b01fd-169e-5755-b1c1-a616630ead42", "type": "cranks", "details": "Haro 3-pc cranks 175mm", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "2db34395-e36a-580a-9d95-2e8c34357f6e", "type": "chainring", "details": "Haro 25T sprocket", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "05adb219-a016-57fe-a99e-6ca6435925c8", "type": "pedals", "details": "Odyssey Twisted PC pedals", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}, {"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2012-09-22"}]}, {"id": "df89e57e-fe6c-5d8b-8477-9fb6caf1c602", "type": "brake", "details": "Haro U-brake (rear)", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "c7c7e027-cc12-53ab-b4f7-d0b457354414", "type": "seatpost", "details": "Haro pivotal post", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "79e8fe70-d253-567b-a7eb-d84c9a9fb562", "type": "seat", "details": "Haro pivotal seat", "usage": [{"bikeId": "d5714710-1670-57d9-b06e-51116ca57bb6", "dateFrom": "2008-03-15", "dateTo": "2011-06-04"}]}, {"id": "a163d475-7843-586d-98c9-918381777539", "type": "frame", "details": "WeThePeople Crysis frame 21\"", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2015-09-12"}]}, {"id": "51c9e659-a3ac-54cf-9f19-b72253197419", "type": "fork", "details": "WTP Battleship fork", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2015-09-12"}, {"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "2019-05-11"}]}, {"id": "8d383e72-1b33-55cd-92fe-96bc7f522274", "type": "wheel", "details": "WTP stock front wheel", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2013-08-17"}]}, {"id": "a0085052-2270-5f53-ab53-a07dbbc32018", "type": "wheel", "details": "Cult Match front wheel", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2013-08-17", "dateTo": "2015-09-12"}, {"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "now"}]}, {"id": "0a2c61a2-d404-5b98-8461-07b7ebe2e309", "type": "wheel", "details": "Cult Match rear wheel 9T", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2013-08-17", "dateTo": "2015-09-12"}, {"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "now"}]}, {"id": "972e6850-b84c-547b-be71-e03c32081611", "type": "stem", "details": "Odyssey Elementary V3 stem", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2015-09-12"}, {"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "now"}]}, {"id": "cb1e3b2a-e93d-5899-8106-8522a27965ea", "type": "handlebar", "details": "WTP stock bars 9\"", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2014-02-08"}]}, {"id": "765da524-c81c-5cc3-ab06-9c451b127eb4", "type": "handlebar", "details": "S&M Race XLT bars 9.25\"", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2014-02-08", "dateTo": "2015-09-12"}, {"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "2019-05-11"}, {"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "a7c69a93-164c-5d5d-ac98-e456f7f739ca", "type": "cranks", "details": "WTP stock 3-pc cranks", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2012-09-22"}]}, {"id": "d8225e66-e6f6-5917-934c-ddd48431617a", "type": "cranks", "details": "Profile Racing cranks 175mm", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2012-09-22", "dateTo": "2015-09-12"}, {"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "now"}]}, {"id": "09a727b6-fe24-5816-b9ce-5482aa706186", "type": "chainring", "details": "WTP 25T sprocket", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2012-09-22"}]}, {"id": "d5a11c79-cdc5-54e8-87ad-4b6dfb7d6bd8", "type": "chainring", "details": "Profile 28T sprocket", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2012-09-22", "dateTo": "2015-09-12"}, {"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "now"}]}, {"id": "83465bbb-9d3a-5bb3-b539-7141b04941b6", "type": "pedals", "details": "Odyssey Grandstand PC pedals", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2012-09-22", "dateTo": "2015-09-12"}, {"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "a5fe2a5d-a94f-51c0-bd47-a1968c8c3bf3", "type": "brake", "details": "Odyssey Springfield U-brake", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2014-02-08"}]}, {"id": "8fca7e78-9b27-5a7b-aa45-e13695e61bb0", "type": "seatpost", "details": "WTP pivotal post", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2015-09-12"}]}, {"id": "19d527cb-7814-56e7-8e8a-83aa410246ce", "type": "seat", "details": "WTP Team pivotal seat", "usage": [{"bikeId": "c8349bf1-53e0-5c03-b834-6d94e2e9609f", "dateFrom": "2011-06-04", "dateTo": "2015-09-12"}, {"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "2020-03-14"}]}, {"id": "79eb51c5-488d-574c-a3de-b72588749a07", "type": "frame", "details": "Cult Gateway frame 20.75\"", "usage": [{"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "now"}]}, {"id": "fe174315-ec37-5cdd-b4a5-bc27207642b6", "type": "fork", "details": "Cult Race fork", "usage": [{"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2019-05-11", "dateTo": "now"}]}, {"id": "9756594d-b739-5e8f-a699-7c36cce5131a", "type": "handlebar", "details": "Cult Crew bars 9.5\"", "usage": [{"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2019-05-11", "dateTo": "now"}]}, {"id": "2e9c9559-0fbf-58e8-9a76-009440b333d7", "type": "pedals", "details": "Cult Dak PC pedals", "usage": [{"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "now"}]}, {"id": "a4679287-ce45-5c08-bf09-76f508e4b619", "type": "seatpost", "details": "Cult pivotal post", "usage": [{"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2015-09-12", "dateTo": "now"}]}, {"id": "23817e6a-5004-59b3-bb3a-6bd7bc40d44e", "type": "seat", "details": "Cult Crew pivotal seat", "usage": [{"bikeId": "1fc7535d-9dfc-5aed-b490-a88b2a6df17d", "dateFrom": "2020-03-14", "dateTo": "now"}]}, {"id": "6d6d073d-e9ac-5f35-9a0b-696f1cb8fbe5", "type": "frame", "details": "S&M ATF frame 21\"", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "58722139-aea0-59fd-ac5d-b60395e296f8", "type": "fork", "details": "S&M Pitchfork XLT", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "53182864-e39a-5f0e-a46d-95f35ed0c3f1", "type": "wheel", "details": "Profile Elite front wheel", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "24020c8f-194e-5cc2-a006-7d0a37bb5bbe", "type": "wheel", "details": "Profile Elite rear wheel", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "a250fd47-51dd-5543-b650-972142b1dc7c", "type": "stem", "details": "S&M Race stem", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "e8c237ae-1d96-5766-9f3d-b948a5f00c81", "type": "handlebar", "details": "S&M Credence bars 9.5\"", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "1857f144-5e6f-5a6e-8d1f-9c261d300550", "type": "cranks", "details": "Profile Column cranks 175mm", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "781e0de3-64fc-5176-a56c-dc8cf8214bf7", "type": "chainring", "details": "Profile 25T sprocket", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "b305e9af-810c-5687-968f-cbf2158e5f92", "type": "brake", "details": "Odyssey Evo 2.5 U-brake", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "a38f5089-852e-5ec3-a65a-6f02f810729d", "type": "seatpost", "details": "S&M railed post", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "db70a75d-3b20-5db6-8d4f-ae2f700faa75", "type": "seat", "details": "S&M Stoney railed seat", "usage": [{"bikeId": "0dbe2426-ae0e-51f8-9ee9-76fc2d628a82", "dateFrom": "2018-04-21", "dateTo": "now"}]}, {"id": "e6c23fe3-dd59-5c43-b96c-e8e9164a00f4", "type": "frame", "details": "Fit STR frame 20.75\"", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "f932cb1d-b30d-5ae4-bb80-4db1fe44f631", "type": "fork", "details": "Fit Blade fork", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "9627cc0d-2266-5f76-a501-d1a6f137d0c6", "type": "wheel", "details": "Fit OEM front wheel", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "b7b3bdb1-4a0b-52b3-8cdb-d19025ab7c57", "type": "wheel", "details": "Fit OEM rear wheel", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "2023-07-15"}]}, {"id": "f78c0639-31ef-54ae-9f4c-033267251e79", "type": "wheel", "details": "Odyssey Clutch v2 rear wheel", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2023-07-15", "dateTo": "now"}]}, {"id": "577224a5-cdd6-5c61-98d1-1117003479cb", "type": "stem", "details": "Fit Shiner stem", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "daf4449f-4ee8-56a9-8400-0ef18fcc95e9", "type": "cranks", "details": "Fit Key cranks 175mm", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "affc49c7-6646-5662-b0cd-9e8203376b49", "type": "chainring", "details": "Fit 25T sprocket", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "6c534f1b-8774-5f6c-a271-0b47fe366bd6", "type": "pedals", "details": "Fit Mac PC pedals", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "a05c95ec-9aaa-553a-9904-e48749ffb70b", "type": "seatpost", "details": "Fit pivotal post", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "c71b2adf-cd8a-5641-8ad5-f71ba128ea28", "type": "seat", "details": "Fit pivotal seat", "usage": [{"bikeId": "a93ceddb-2db0-52a2-914f-8e34d33f22bd", "dateFrom": "2021-05-08", "dateTo": "now"}]}, {"id": "926236bb-8101-59dd-b30f-830cc627c82d", "type": "frame", "details": "Kona Cinder Cone frame 18\"", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "9ca0b86c-dcbe-5ed0-9a3f-214b55a376d3", "type": "fork", "details": "RockShox Tora 100mm", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "2721e4e0-e067-5b1a-bd0c-b3dac0ac1dce", "type": "wheel", "details": "Deore / Mavic XM317 26\" front", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}, {"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "2019-06-01"}]}, {"id": "ac273425-d8ca-5de1-9723-470c40134db0", "type": "wheel", "details": "Deore / Mavic XM317 26\" rear", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}, {"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "2019-06-01"}]}, {"id": "0af97241-3fd4-5c9a-b868-590f93eea7ec", "type": "brake", "details": "Avid Juicy 3 front", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "b01c0488-47c1-5130-af5c-8903fd549ca2", "type": "brake", "details": "Avid Juicy 3 rear", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "6ecd06e4-07f9-57bb-8b01-1dc22130c5fd", "type": "stem", "details": "Kona stock stem 90mm", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "e00b9de7-48c2-5554-adcc-b8483e5e9035", "type": "handlebar", "details": "Kona riser bar 660mm", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "ac596c44-397e-5ad5-92c4-64ba0675cc14", "type": "cranks", "details": "Shimano Deore 3x9 cranks", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "a4d705fb-4b60-581a-845b-206128c84523", "type": "derailleur", "details": "Shimano Deore 9s rear derailleur", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "16f6de82-16ef-5e5f-b02f-65afd335f8d1", "type": "cassette", "details": "Shimano HG50 11-32", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "366b53fc-5e60-5734-8b04-6f0ff0990723", "type": "pedals", "details": "Wellgo flat pedals", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2011-08-20"}]}, {"id": "20a44a66-6edb-5814-abb8-37f4bb884bc2", "type": "pedals", "details": "Shimano DX pedals", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2011-08-20", "dateTo": "2013-04-13"}, {"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2016-05-07"}]}, {"id": "6ad1e59e-e659-58d9-a500-dd3963e7c3e8", "type": "seatpost", "details": "Kona stock seatpost", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "25f12344-8a71-5557-a0be-03f9dcfac420", "type": "seat", "details": "WTB Speed V", "usage": [{"bikeId": "2fa8bbf3-77fc-5b08-8d07-092973ad7803", "dateFrom": "2009-05-02", "dateTo": "2013-04-13"}]}, {"id": "c1a21b98-0e12-5ebd-be78-064bfb73f2b3", "type": "frame", "details": "Specialized Stumpjumper FSR Comp 29 M", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2017-08-12"}]}, {"id": "f41aa19b-c3d5-5e2d-b86c-9065cfc93c1f", "type": "shock", "details": "Fox Float CTD", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2017-08-12"}]}, {"id": "08e46e79-5b0c-5f9e-a10b-8fb02ed5fe21", "type": "fork", "details": "Fox 32 Float 140mm", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2017-08-12"}]}, {"id": "c4fa36ff-15c0-5397-aea0-f32d8e63962f", "type": "wheel", "details": "Roval Traverse 29 front", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2017-08-12"}]}, {"id": "a1a1efac-036c-546d-8acb-36a07c511667", "type": "wheel", "details": "Roval Traverse 29 rear", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2017-08-12"}]}, {"id": "cfa5f32b-f731-5128-ab28-01ce12d320ad", "type": "brake", "details": "Avid Elixir 5 front", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2015-06-06"}]}, {"id": "8ebc5eb4-f85d-5bd9-81b8-27da0687cc64", "type": "brake", "details": "Avid Elixir 5 rear", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2015-06-06"}]}, {"id": "3a511b55-e1bc-552b-a126-ab0e1854544e", "type": "brake", "details": "Shimano XT M8000 front", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2015-06-06", "dateTo": "2017-08-12"}, {"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "2021-04-17"}]}, {"id": "a0ffc05a-6dc6-574c-bb24-d63d266007b3", "type": "brake", "details": "Shimano XT M8000 rear", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2015-06-06", "dateTo": "2017-08-12"}, {"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "2021-04-17"}]}, {"id": "e90afde1-9e29-56dd-8a69-b6abfb03f786", "type": "stem", "details": "Specialized stem 75mm", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2014-09-13"}]}, {"id": "0383ca50-5b4a-526c-921e-f570704dc7ae", "type": "stem", "details": "Race Face Atlas stem 50mm", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2014-09-13", "dateTo": "2017-08-12"}, {"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "79faa821-4b4c-5136-ad72-3b2d8dfdb72e", "type": "handlebar", "details": "Specialized bar 720mm", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2014-09-13"}]}, {"id": "7f167eb1-1568-59f5-a03b-a327448c987a", "type": "handlebar", "details": "Race Face Atlas bar 785mm", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2014-09-13", "dateTo": "2017-08-12"}, {"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "2022-03-26"}, {"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2022-03-26", "dateTo": "now"}]}, {"id": "64583289-9322-5439-8799-874bbe2bb2d7", "type": "cranks", "details": "SRAM S1000 cranks", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2017-08-12"}]}, {"id": "d47ec4cc-f858-5cb1-828b-8119d118800b", "type": "chainring", "details": "Race Face narrow-wide 32T", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2016-03-19", "dateTo": "2017-08-12"}]}, {"id": "27066d05-bdeb-574f-b904-e46ee75a6b81", "type": "derailleur", "details": "SRAM X7 10s derailleur", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2016-03-19"}]}, {"id": "94d3d55c-93d7-503c-8923-5fb1892395cb", "type": "derailleur", "details": "SRAM GX 1x11 derailleur", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2016-03-19", "dateTo": "2017-08-12"}, {"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "6c264fee-1943-5a4a-8fdd-9e1c9874b1c9", "type": "cassette", "details": "SRAM PG-1030 11-36", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2016-03-19"}]}, {"id": "cb1ac102-8227-5e1b-b468-eb4a76e7a077", "type": "cassette", "details": "SRAM PG-1130 11-42", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2016-03-19", "dateTo": "2017-08-12"}]}, {"id": "74094680-ab56-52fa-9754-aad22ad9bf2c", "type": "pedals", "details": "Shimano Saint MX80 pedals", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2016-05-07", "dateTo": "2017-08-12"}, {"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "334b110f-c586-57d3-9ddb-5deaf29c4cfa", "type": "seatpost", "details": "Specialized Command Post dropper", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2017-08-12"}, {"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "29816f49-6a3d-5524-9990-2d34c42738ad", "type": "seat", "details": "Specialized Henge", "usage": [{"bikeId": "944175d9-e328-57dc-8211-6ce42073a530", "dateFrom": "2013-04-13", "dateTo": "2017-08-12"}, {"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "2020-01-18"}]}, {"id": "bd253c9c-8769-5627-a18f-a14f4cae3e3f", "type": "frame", "details": "Nukeproof Mega 290 frame L", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "723a05fe-52cb-5060-a583-a7df8522de0c", "type": "shock", "details": "RockShox Super Deluxe", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "4eada1d5-60fc-5969-ae94-0d52d887ba8f", "type": "fork", "details": "RockShox Lyrik 160mm", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "4129ea47-7929-5b27-9b2f-665daa1f7826", "type": "wheel", "details": "DT Swiss E1900 29 front", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "2022-03-26"}, {"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2022-03-26", "dateTo": "now"}]}, {"id": "6dde8d5a-d07a-5185-8ba8-ff28182fa32a", "type": "wheel", "details": "DT Swiss E1900 29 rear", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "2022-03-26"}, {"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2022-03-26", "dateTo": "now"}]}, {"id": "84662040-3629-520e-8219-00e36e429624", "type": "wheel", "details": "We Are One Union 29 front", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2022-03-26", "dateTo": "now"}]}, {"id": "72b06d42-0d08-5bcd-bd43-83af1be5172a", "type": "wheel", "details": "We Are One Union 29 rear", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2022-03-26", "dateTo": "now"}]}, {"id": "e5cb9d3d-e055-51af-a1cd-9b59625ddbe9", "type": "brake", "details": "Shimano Saint M820 front (Mega)", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2021-04-17", "dateTo": "now"}]}, {"id": "68f2b5e8-df23-5996-8f13-1289eb96f696", "type": "brake", "details": "Shimano Saint M820 rear (Mega)", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2021-04-17", "dateTo": "now"}]}, {"id": "ad4a5c87-9508-5ed0-86ea-d08cb6908dfc", "type": "handlebar", "details": "Renthal Fatbar 35 800mm", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2022-03-26", "dateTo": "now"}]}, {"id": "1cea34c4-504f-59d9-91cf-cd58480dc587", "type": "cranks", "details": "Race Face Aeffect cranks", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "9b15570a-ae59-5ae0-b806-d5ac69d415bc", "type": "chainring", "details": "Race Face 30T", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "057c3864-5be3-5e15-b540-e0a54d2ca9d5", "type": "derailleur", "details": "SRAM GX Eagle derailleur", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "932e65d3-9032-5ddc-b9e5-4f0eaadbee60", "type": "cassette", "details": "SRAM GX Eagle 10-50", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "4439aa64-3647-5958-8623-5faa5eb822b1", "type": "seatpost", "details": "OneUp V2 dropper 180mm", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2017-08-12", "dateTo": "now"}]}, {"id": "832add09-c42b-579e-b19b-0b7e8728822a", "type": "seat", "details": "WTB Volt", "usage": [{"bikeId": "5f780220-959d-508b-bc62-5ec091fe95fd", "dateFrom": "2020-01-18", "dateTo": "now"}]}, {"id": "9c7e064a-5b31-5cd9-948e-26987869bfd9", "type": "frame", "details": "NS Bikes Decade frame", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "now"}]}, {"id": "6a6da76e-82e7-5e25-a7d4-9b24b7647544", "type": "fork", "details": "Marzocchi DJ 100mm", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "2020-05-09"}]}, {"id": "56fd842c-a766-5778-9380-d990c05b705b", "type": "fork", "details": "RockShox Pike DJ 100mm", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2020-05-09", "dateTo": "now"}]}, {"id": "b3e77c0c-75a8-5bab-96ea-cb3304f8f357", "type": "wheel", "details": "Spank Spike Race 26 front", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2019-08-24", "dateTo": "now"}]}, {"id": "a949a2f4-3a9e-5ccb-ba30-d7930ac7e574", "type": "wheel", "details": "Spank Spike Race 26 rear", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2019-08-24", "dateTo": "now"}]}, {"id": "f916f23b-c230-543f-92cc-18e5a15e2160", "type": "brake", "details": "Avid Elixir 3 rear", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "2018-11-03"}]}, {"id": "856cff61-940c-5991-a6a3-91bac6f22c31", "type": "stem", "details": "NS Quantum stem", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "now"}]}, {"id": "dc79797b-1746-5966-948f-f15e7468077c", "type": "handlebar", "details": "NS Licence bar 750mm", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "now"}]}, {"id": "bf99272a-0461-5eb2-abcb-d22dabbc853b", "type": "cranks", "details": "Shimano Zee cranks", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "now"}]}, {"id": "df5345c5-0a43-538c-aa5b-538d23fcfa62", "type": "chainring", "details": "NS 28T chainring", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "now"}]}, {"id": "dc7b088d-a795-5fcf-991c-bdbd72c790c4", "type": "pedals", "details": "DMR Vault pedals", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "now"}]}, {"id": "1af7aa96-33f8-51a5-a177-fd61372fb235", "type": "seatpost", "details": "NS seatpost", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "now"}]}, {"id": "aa654e0c-d9f9-5495-85df-4684de097687", "type": "seat", "details": "NS Nerd seat", "usage": [{"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2014-03-22", "dateTo": "now"}]}, {"id": "43aaa334-21fa-5f1b-9f25-aaef26af0f99", "type": "frame", "details": "Production Privée Shan No.5 frame L", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "3ed28c8c-7898-5479-8d7d-e6748216a03a", "type": "fork", "details": "Fox 36 Rhythm 150mm", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "0a2a9e58-782b-57bc-89dd-6ca80b04e270", "type": "wheel", "details": "Sun Ringlé Duroc 29 front", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "2022-03-26"}]}, {"id": "7bc97518-c043-518a-afc8-035704eab758", "type": "wheel", "details": "Sun Ringlé Duroc 29 rear", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "2022-03-26"}]}, {"id": "a4b26456-2c86-56eb-8759-0270bfd1ece4", "type": "brake", "details": "Shimano SLX M7120 front", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "e40d38cb-fe93-5464-b7a3-aa90b977afab", "type": "brake", "details": "Shimano SLX M7120 rear", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "d431a726-dc34-5079-8e2c-3f9407398005", "type": "stem", "details": "Funn Crossfire stem 40mm", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "a7906d0e-a649-5734-a6e5-92934487a1c2", "type": "handlebar", "details": "Funn Full On bar 780mm", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "2022-03-26"}]}, {"id": "660e74ec-ba35-5556-a9f9-914c1b1d3658", "type": "cranks", "details": "SRAM NX cranks", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "546f0d7a-78c5-5ea1-83c7-58a44994313f", "type": "chainring", "details": "SRAM X-Sync 32T", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "de495325-1f3a-5d67-8d78-bbd67f28d0b5", "type": "cassette", "details": "SRAM NX 11-42", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "b7a42ce3-c847-5870-ad8a-2574ac83e247", "type": "pedals", "details": "OneUp composite pedals", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "a48f2a66-5bda-5882-a0db-a1cea0c8fe46", "type": "seatpost", "details": "PNW Rainier dropper 150mm", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "f734a10d-bcc9-5144-b1b8-0456d2cfe998", "type": "seat", "details": "SDG Bel-Air 3.0", "usage": [{"bikeId": "7e3f05c8-84cd-5d2b-b3c3-b3dbb7a47b27", "dateFrom": "2020-06-13", "dateTo": "now"}]}, {"id": "4e2d3445-66da-5d59-9d77-9a4d1df87536", "type": "frame", "details": "Commencal Supreme DH V3 frame M", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "fefa88d3-8c8e-5c07-9f47-03ad0799d349", "type": "shock", "details": "Fox DHX RC4", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "c153ce90-6f32-5755-82e0-1a8fab57d610", "type": "fork", "details": "Fox 40 RC2", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "f1d96425-9aa1-5cbd-a11f-6da33b81ebc9", "type": "wheel", "details": "Mavic Deemax 26 front", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "8757175b-19fc-5311-8522-c333866e9525", "type": "wheel", "details": "Mavic Deemax 26 rear", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "7138d3ca-f773-5d62-867f-98dbda278c6e", "type": "brake", "details": "Shimano Saint M820 front (Supreme)", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "2c6851cf-67a2-56df-be11-c19f2cbf469f", "type": "brake", "details": "Shimano Saint M820 rear (Supreme)", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}, {"bikeId": "fdb548df-8dd9-50ee-b4ff-559508273399", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "1b8e10f5-0d57-5cb3-be3f-26387cb53101", "type": "stem", "details": "Race Face direct-mount stem 50mm", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}, {"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "e118ddd2-e546-5d95-9c0f-93df935b9907", "type": "handlebar", "details": "Renthal Fatbar DH 780mm", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2015-04-18"}]}, {"id": "c20d4d17-cf27-5fdd-8b30-6edb506d7263", "type": "handlebar", "details": "Spank Spike 800 bar", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2015-04-18", "dateTo": "2018-11-03"}, {"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "4e369885-4d19-5f22-86ac-1aecedc364db", "type": "cranks", "details": "Shimano Saint cranks 165mm", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "fbb406cf-f454-5ae0-a3bd-4f2967a9b9ca", "type": "derailleur", "details": "Shimano Saint 10s derailleur", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "b775b76f-8902-59e0-ab66-2a7b444f4daf", "type": "cassette", "details": "Shimano 11-23 DH cassette", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "7fb40e95-cb5a-50d7-990c-5547ddc8a092", "type": "pedals", "details": "Crankbrothers Mallet DH", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}, {"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "2023-04-22"}]}, {"id": "5f0033c9-f0fe-58e2-b35e-6b83420f7d22", "type": "seatpost", "details": "Commencal seatpost", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "59d80d04-80a6-5211-8f08-964357dd75e0", "type": "seat", "details": "Commencal DH seat", "usage": [{"bikeId": "f5db564a-20bb-5960-b8b1-11f88ceb2071", "dateFrom": "2012-05-05", "dateTo": "2018-11-03"}]}, {"id": "ae1abf22-6355-5d6f-a499-a438288a55a1", "type": "frame", "details": "Santa Cruz V10 frame L", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "44cf37f7-80d9-5175-8864-2f3d40c8496f", "type": "shock", "details": "Fox DHX2", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "b4baf87a-8ae2-58cb-a753-d7b4447b4829", "type": "fork", "details": "Fox 40 Factory", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "3e8f5da4-554c-5260-b563-c4a0c8eb37c0", "type": "wheel", "details": "Reserve DH 29 front", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "3917d6cd-cab6-53a2-aeb6-1e759b6b49bd", "type": "wheel", "details": "Reserve DH 29 rear", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "2022-07-09"}]}, {"id": "cd72a4e7-ca86-5f5a-bfc8-13d8c84f1c19", "type": "wheel", "details": "DT Swiss FR1500 29 rear", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2022-07-09", "dateTo": "now"}]}, {"id": "3c4bdb77-2188-500d-ad8c-b1fddb1d13fc", "type": "brake", "details": "Shimano Saint M820 front (V10)", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "306aa8a5-1b15-541c-82c8-4f253fc2d7cc", "type": "brake", "details": "Shimano Saint M820 rear (V10)", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "2e84e0e4-6d6c-5582-9d6b-33cfbc16ecac", "type": "cranks", "details": "SRAM X01 DH cranks", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "300a825b-5170-52ca-b2ed-020b8cc7eb85", "type": "chainring", "details": "SRAM X-Sync 34T", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "bc7b25ca-d1e8-5cf4-b3a3-68026b898d32", "type": "derailleur", "details": "SRAM X01 DH 7s derailleur", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "e848fa3f-0a39-563e-bc46-1582c74e833a", "type": "cassette", "details": "SRAM XG-795 10-24", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "0a253e7c-e342-5d87-b81b-4e80b8584c58", "type": "pedals", "details": "Crankbrothers Stamp 7", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2023-04-22", "dateTo": "now"}]}, {"id": "76152d62-15b5-5d53-b679-92def421f8c2", "type": "seatpost", "details": "Santa Cruz seatpost", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "3217603a-9866-5112-8c84-d8fdded6e39c", "type": "seat", "details": "WTB Silverado", "usage": [{"bikeId": "937821c4-035a-523a-9e88-62f28805bf0e", "dateFrom": "2018-11-03", "dateTo": "now"}]}, {"id": "06ad74ec-ac0e-5688-b4f1-96ada901b2ea", "type": "frame", "details": "Bombtrack Hook EXT frame M", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "b3799018-a054-515b-88cc-747022b26b1f", "type": "fork", "details": "Bombtrack carbon fork", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "76b9076a-691b-58a5-81f4-4325f0b6c43a", "type": "wheel", "details": "Hunt 650b Adventure front", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "7ca4dca6-d031-5ee0-84ce-9bf86ce72a02", "type": "wheel", "details": "Hunt 650b Adventure rear", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "15d68308-3c5a-5faa-93f5-eea9bead2b52", "type": "brake", "details": "Shimano GRX RX400 front", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "9982e634-7308-5a36-ae92-9c1cebbbb416", "type": "brake", "details": "Shimano GRX RX400 rear", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "619b2f8d-7182-56ce-bd73-4a27b7e9d7dc", "type": "stem", "details": "Ritchey Comp stem 80mm", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "0e934ce0-1355-5e74-82a7-c6a4eae6293b", "type": "handlebar", "details": "Salsa Cowchipper 46cm", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "9367ee71-ed1a-5d16-80dc-c613be7356ba", "type": "cranks", "details": "Shimano GRX RX600 1x cranks", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "551f5ffb-14d2-5440-8a8a-cbbd51a26e4c", "type": "chainring", "details": "Shimano GRX 40T", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "38571cf2-2215-5a33-8f2c-91e7136f9b73", "type": "derailleur", "details": "Shimano GRX RX812 derailleur", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "ae483b09-22a9-545d-bab1-1631c82dcfc6", "type": "cassette", "details": "Shimano SLX 11-42", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "3b06eb32-91e2-56d6-9c82-47a751faecc6", "type": "pedals", "details": "Shimano XT M8100 SPD", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}, {"id": "9cad63eb-dea3-59a3-984b-68c470898200", "type": "seat", "details": "Fizik Terra Argo", "usage": [{"bikeId": "eea7fd47-2b94-5f3a-bc66-674f0994648f", "dateFrom": "2021-03-20", "dateTo": "now"}]}]}</script>
@@ -229,19 +242,32 @@
   const BIKE_NAME_MAX_CHARACTERS_PER_LINE = 17;
   const BIKE_NAME_MAX_LINES = 2;
 
-  // x offset of each lane, measured from the left edge of its bike bar
-  const laneOffsetsX = [];
-  {
-    let currentX = BAR_INNER_PADDING;
+  // x offset of each lane (measured from the left edge of its bike bar) and the resulting bar width
+  function computeLaneLayout({ laneWidth, laneGap, partGroupGap, barInnerPadding }) {
+    const laneOffsetsX = [];
+    let currentX = barInnerPadding;
     let previousPartGroup = null;
     for (const lane of LANE_DEFINITIONS) {
-      if (previousPartGroup && lane.partGroup !== previousPartGroup) currentX += PART_GROUP_GAP;
+      if (previousPartGroup && lane.partGroup !== previousPartGroup) currentX += partGroupGap;
       laneOffsetsX.push(currentX);
-      currentX += LANE_WIDTH + LANE_GAP;
+      currentX += laneWidth + laneGap;
       previousPartGroup = lane.partGroup;
     }
+    const barWidth = laneOffsetsX[laneOffsetsX.length - 1] + laneWidth + barInnerPadding;
+    return { laneOffsetsX, barWidth };
   }
-  const BIKE_BAR_WIDTH = laneOffsetsX[laneOffsetsX.length - 1] + LANE_WIDTH + BAR_INNER_PADDING;
+  const PART_GROUP_CHANGES_BETWEEN_LANES = LANE_DEFINITIONS
+    .filter((lane, index) => index > 0 && lane.partGroup !== LANE_DEFINITIONS[index - 1].partGroup).length;
+
+  const { laneOffsetsX, barWidth: BIKE_BAR_WIDTH } = computeLaneLayout({
+    laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING,
+  });
+
+  // Ribbon shape: leave the old bike upwards and enter the new bike from below (time runs upwards).
+  function ribbonPathData(startX, startY, endX, endY) {
+    const curveControlOffset = Math.max(18, Math.min(70, Math.abs(endX - startX) * 0.12));
+    return `M${startX},${startY} C${startX},${startY - curveControlOffset} ${endX},${endY + curveControlOffset} ${endX},${endY}`;
+  }
 
   // part type -> list of lane indexes it may occupy
   const laneIndexesByPartType = {};
@@ -594,11 +620,9 @@
           continue;
         }
 
-        // Leave the old bike upwards and enter the new bike from below (time runs upwards).
-        const curveControlOffset = Math.max(18, Math.min(70, Math.abs(endX - startX) * 0.12));
         const ribbon = createSvgElement('path', {
           class: 'part-ribbon', 'data-part-id': part.id, stroke: partColor, 'stroke-width': LANE_WIDTH,
-          d: `M${startX},${startY} C${startX},${startY - curveControlOffset} ${endX},${endY + curveControlOffset} ${endX},${endY}`,
+          d: ribbonPathData(startX, startY, endX, endY),
         }, ribbonLayer);
         attachPartHoverHandlers(ribbon, part);
       }
@@ -739,6 +763,290 @@
   }
 
   // =====================================================================
+  // Print poster (A2 landscape): every part's details written along its strip
+  // =====================================================================
+
+  const MILLIMETERS_TO_PIXELS = 96 / 25.4;
+  const POSTER_PRINTABLE_WIDTH_MM = 574;   // A2 landscape 594mm minus 2 × 10mm page margin
+  const POSTER_PRINTABLE_HEIGHT_MM = 399;  // 420mm minus margins, 1mm spare so it never spills onto a second page
+  const POSTER_FONT_FAMILY = 'Helvetica, Arial, sans-serif';
+  const POSTER_COLORS = {
+    page: '#ffffff', builtBar: '#ecebe7', gridline: '#e4e3df', axisLine: '#c9c8c2',
+    textPrimary: '#0b0b0b', textSecondary: '#52514e', textMuted: '#7a7974',
+  };
+  // Light-mode part group colours (same as the screen palette)
+  const POSTER_PART_GROUP_COLORS = {
+    chassis: '#2a78d6', wheels: '#eb6834', brakes: '#1baf7a', cockpit: '#eda100', drivetrain: '#e87ba4', seat: '#008300',
+  };
+  const POSTER_LABEL_TINT_STRENGTH = 0.3; // part strip fill = this much group colour mixed into white
+  const POSTER_TITLE_BAND_HEIGHT = 66;
+  const POSTER_YEAR_AXIS_WIDTH = 40;
+  const POSTER_GAP_BETWEEN_BIKES = 14;
+  const POSTER_GAP_BETWEEN_BIKE_TYPES = 30;
+  const POSTER_LANE_GAP = 0.75;
+  const POSTER_PART_GROUP_GAP = 2;
+  const POSTER_BAR_INNER_PADDING = 2;
+  const POSTER_BIKE_NAME_FONT_SIZE = 13;
+  const POSTER_BIKE_NAME_LINE_HEIGHT = 15;
+  const POSTER_BIKE_DETAIL_FONT_SIZE = 9.5;
+  const POSTER_BIKE_DETAIL_LINE_HEIGHT = 12;
+  const POSTER_MIN_LABEL_SCALE = 0.8;      // labels may shrink to 80% before being shortened with "…"
+
+  function mixWithWhite(hexColor, strength) {
+    const channels = [1, 3, 5].map(offset => parseInt(hexColor.slice(offset, offset + 2), 16));
+    const mixed = channels.map(channel => Math.round(255 + (channel - 255) * strength));
+    return '#' + mixed.map(channel => channel.toString(16).padStart(2, '0')).join('');
+  }
+
+  const textMeasuringContext = document.createElement('canvas').getContext('2d');
+  function measureTextWidth(text, fontSize, fontWeight = 400) {
+    textMeasuringContext.font = `${fontWeight} ${fontSize}px ${POSTER_FONT_FAMILY}`;
+    return textMeasuringContext.measureText(text).width;
+  }
+
+  // Fit text into maxLength: shrink the font a little first, then shorten with "…".
+  // Returns null when not even a few characters fit.
+  function fitTextIntoLength(text, preferredFontSize, maxLength) {
+    const minimumFontSize = preferredFontSize * POSTER_MIN_LABEL_SCALE;
+    for (let fontSize = preferredFontSize; fontSize >= minimumFontSize - 0.01; fontSize -= preferredFontSize * 0.05) {
+      if (measureTextWidth(text, fontSize) <= maxLength) return { text, fontSize };
+    }
+    let shortened = text;
+    while (shortened.length > 3 && measureTextWidth(shortened.trimEnd() + '…', minimumFontSize) > maxLength) {
+      shortened = shortened.slice(0, -1);
+    }
+    if (shortened.length <= 3) return null;
+    return { text: shortened.trimEnd() + '…', fontSize: minimumFontSize };
+  }
+
+  function wrapTextByWidth(text, fontSize, fontWeight, maxWidth, maxLines) {
+    const lines = [];
+    let currentLine = '';
+    for (const word of text.split(/\s+/)) {
+      const candidate = (currentLine + ' ' + word).trim();
+      if (measureTextWidth(candidate, fontSize, fontWeight) <= maxWidth) currentLine = candidate;
+      else { if (currentLine) lines.push(currentLine); currentLine = word; }
+    }
+    if (currentLine) lines.push(currentLine);
+    if (lines.length > maxLines) {
+      lines.length = maxLines;
+      let lastLine = lines[maxLines - 1];
+      while (lastLine.length > 1 && measureTextWidth(lastLine + '…', fontSize, fontWeight) > maxWidth) lastLine = lastLine.slice(0, -1);
+      lines[maxLines - 1] = lastLine + '…';
+    }
+    return lines;
+  }
+
+  const formatLongDate = timestamp =>
+    new Date(timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+  function renderPoster() {
+    const posterContainer = document.getElementById('print-poster');
+    posterContainer.innerHTML = '';
+
+    const posterWidth = POSTER_PRINTABLE_WIDTH_MM * MILLIMETERS_TO_PIXELS;
+    const posterHeight = POSTER_PRINTABLE_HEIGHT_MM * MILLIMETERS_TO_PIXELS;
+    const svg = createSvgElement('svg', {
+      width: `${POSTER_PRINTABLE_WIDTH_MM}mm`, height: `${POSTER_PRINTABLE_HEIGHT_MM}mm`,
+      viewBox: `0 0 ${posterWidth} ${posterHeight}`, 'font-family': POSTER_FONT_FAMILY,
+    }, posterContainer);
+    createSvgElement('rect', { x: 0, y: 0, width: posterWidth, height: posterHeight, fill: POSTER_COLORS.page }, svg);
+    const addText = (parent, content, attributes) => {
+      const textElement = createSvgElement('text', attributes, parent);
+      textElement.textContent = content;
+      return textElement;
+    };
+
+    renderPosterTitleBand(svg, posterWidth, addText);
+
+    // ----- columns: bars share the available width equally -----
+    const placedGroups = timelineModel.bikeTypeGroups;
+    const placedBikeCount = placedGroups.reduce((total, group) => total + group.bikes.length, 0);
+    const totalGapWidth = (placedBikeCount - placedGroups.length) * POSTER_GAP_BETWEEN_BIKES
+      + (placedGroups.length - 1) * POSTER_GAP_BETWEEN_BIKE_TYPES;
+    const barWidth = (posterWidth - POSTER_YEAR_AXIS_WIDTH - 12 - totalGapWidth) / placedBikeCount;
+    const laneWidth = (barWidth - 2 * POSTER_BAR_INNER_PADDING - PART_GROUP_CHANGES_BETWEEN_LANES * POSTER_PART_GROUP_GAP)
+      / LANE_DEFINITIONS.length - POSTER_LANE_GAP;
+    const { laneOffsetsX: posterLaneOffsetsX } = computeLaneLayout({
+      laneWidth, laneGap: POSTER_LANE_GAP, partGroupGap: POSTER_PART_GROUP_GAP, barInnerPadding: POSTER_BAR_INNER_PADDING,
+    });
+
+    const barLeftXByBikeId = {};
+    let currentX = POSTER_YEAR_AXIS_WIDTH + 8;
+    placedGroups.forEach((group, groupIndex) => {
+      if (groupIndex > 0) currentX += POSTER_GAP_BETWEEN_BIKE_TYPES;
+      group.posterLeftX = currentX;
+      group.bikes.forEach((bike, bikeIndex) => {
+        if (bikeIndex > 0) currentX += POSTER_GAP_BETWEEN_BIKES;
+        barLeftXByBikeId[bike.id] = currentX;
+        currentX += barWidth;
+      });
+      group.posterRightX = currentX;
+    });
+
+    // ----- bike headers: name, status, built periods -----
+    const formatBuiltPeriod = period =>
+      `${formatMonthYear(period.startTimestamp)}–${formatMonthYear(period.endTimestamp)} · ${formatDuration(period.endTimestamp - period.startTimestamp)}`;
+    const headerLinesByBikeId = {};
+    for (const group of placedGroups) {
+      for (const bike of group.bikes) {
+        headerLinesByBikeId[bike.id] = {
+          nameLines: wrapTextByWidth(bike.name || `${group.label} ${bike.numberWithinType}`, POSTER_BIKE_NAME_FONT_SIZE, 700, barWidth, 2),
+          builtPeriodLines: bike.builtPeriods.map(formatBuiltPeriod),
+        };
+      }
+    }
+    const tallestHeaderContent = Math.max(...Object.values(headerLinesByBikeId).map(lines =>
+      lines.nameLines.length * POSTER_BIKE_NAME_LINE_HEIGHT + (1 + lines.builtPeriodLines.length) * POSTER_BIKE_DETAIL_LINE_HEIGHT));
+    const headerTopY = POSTER_TITLE_BAND_HEIGHT;
+    const plotTopY = headerTopY + 30 + tallestHeaderContent + 10;
+    const plotBottomY = posterHeight - 16;
+
+    const headerLayer = createSvgElement('g', {}, svg);
+    for (const group of placedGroups) {
+      addText(headerLayer, group.label, { x: group.posterLeftX, y: headerTopY + 12, 'font-size': 13, 'font-weight': 700, 'letter-spacing': '0.06em', fill: POSTER_COLORS.textPrimary });
+      createSvgElement('line', { x1: group.posterLeftX, x2: group.posterRightX, y1: headerTopY + 19, y2: headerTopY + 19, stroke: POSTER_COLORS.axisLine }, headerLayer);
+      for (const bike of group.bikes) {
+        const barLeftX = barLeftXByBikeId[bike.id];
+        const { nameLines, builtPeriodLines } = headerLinesByBikeId[bike.id];
+        let lineY = headerTopY + 36;
+        for (const nameLine of nameLines) {
+          addText(headerLayer, nameLine, { x: barLeftX, y: lineY, 'font-size': POSTER_BIKE_NAME_FONT_SIZE, 'font-weight': 700, fill: POSTER_COLORS.textPrimary });
+          lineY += POSTER_BIKE_NAME_LINE_HEIGHT;
+        }
+        lineY -= 1;
+        const statusIcon = createSvgElement('g', { style: `color:${POSTER_COLORS.textSecondary}` }, headerLayer);
+        statusIcon.innerHTML = statusIconSvgMarkup(bike.status, barLeftX + 4, lineY - 3.5);
+        addText(headerLayer, BIKE_STATUS_LABELS[bike.status], { x: barLeftX + 12, y: lineY, 'font-size': POSTER_BIKE_DETAIL_FONT_SIZE, fill: POSTER_COLORS.textSecondary });
+        for (const builtPeriodLine of builtPeriodLines) {
+          lineY += POSTER_BIKE_DETAIL_LINE_HEIGHT;
+          addText(headerLayer, builtPeriodLine, { x: barLeftX, y: lineY, 'font-size': POSTER_BIKE_DETAIL_FONT_SIZE, fill: POSTER_COLORS.textSecondary, 'font-variant-numeric': 'tabular-nums' });
+        }
+      }
+    }
+
+    // ----- time scale -----
+    const timelineStartTimestamp = Date.UTC(timelineModel.earliestYear, 0, 1);
+    const timelineEndTimestamp = Date.UTC(CURRENT_YEAR + 1, 0, 1);
+    const posterPixelsPerYear = (plotBottomY - plotTopY) / ((timelineEndTimestamp - timelineStartTimestamp) / MILLISECONDS_PER_YEAR);
+    const timestampToY = timestamp => plotTopY + (timelineEndTimestamp - timestamp) / MILLISECONDS_PER_YEAR * posterPixelsPerYear;
+
+    const gridLayer = createSvgElement('g', {}, svg);
+    for (let year = timelineModel.earliestYear; year <= CURRENT_YEAR + 1; year++) {
+      const yearStartY = timestampToY(Date.UTC(year, 0, 1));
+      createSvgElement('line', { x1: POSTER_YEAR_AXIS_WIDTH, x2: posterWidth, y1: yearStartY, y2: yearStartY, stroke: POSTER_COLORS.gridline, 'stroke-width': 0.75 }, gridLayer);
+      if (year <= CURRENT_YEAR) {
+        addText(gridLayer, year, { x: POSTER_YEAR_AXIS_WIDTH - 6, y: timestampToY(Date.UTC(year, 6, 1)) + 4, 'text-anchor': 'end', 'font-size': 11, fill: POSTER_COLORS.textMuted });
+      }
+    }
+    const todayY = timestampToY(TODAY_TIMESTAMP);
+    createSvgElement('line', { x1: POSTER_YEAR_AXIS_WIDTH, x2: posterWidth, y1: todayY, y2: todayY, stroke: POSTER_COLORS.textMuted, 'stroke-dasharray': '3 3', 'stroke-width': 0.75 }, gridLayer);
+    addText(gridLayer, 'today', { x: POSTER_YEAR_AXIS_WIDTH - 6, y: todayY + 3, 'text-anchor': 'end', 'font-size': 9, fill: POSTER_COLORS.textMuted });
+
+    // ----- built bars -----
+    const barLayer = createSvgElement('g', {}, svg);
+    for (const bike of timelineModel.bikes) {
+      const barLeftX = barLeftXByBikeId[bike.id];
+      if (barLeftX == null) continue;
+      for (const period of bike.builtPeriods) {
+        const topY = timestampToY(period.endTimestamp);
+        createSvgElement('rect', { x: barLeftX, y: topY, width: barWidth, height: Math.max(2, timestampToY(period.startTimestamp) - topY), rx: 3, fill: POSTER_COLORS.builtBar }, barLayer);
+      }
+    }
+
+    // ----- ribbons and same-bike storage links -----
+    const laneCenterX = (bikeId, laneIndex) => barLeftXByBikeId[bikeId] + posterLaneOffsetsX[laneIndex] + laneWidth / 2;
+    const ribbonLayer = createSvgElement('g', {}, svg);
+    for (const part of timelineModel.parts) {
+      const partColor = POSTER_PART_GROUP_COLORS[part.partGroup];
+      for (let index = 0; index < part.mountings.length - 1; index++) {
+        const previousMounting = part.mountings[index];
+        const nextMounting = part.mountings[index + 1];
+        if (barLeftXByBikeId[previousMounting.bikeId] == null || barLeftXByBikeId[nextMounting.bikeId] == null) continue;
+        const startX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
+        const startY = timestampToY(previousMounting.endTimestamp);
+        const endX = laneCenterX(nextMounting.bikeId, nextMounting.laneIndex);
+        const endY = timestampToY(nextMounting.startTimestamp);
+        if (previousMounting.bikeId === nextMounting.bikeId) {
+          createSvgElement('line', { x1: startX, x2: endX, y1: startY, y2: endY, stroke: partColor, 'stroke-width': 1.5, 'stroke-dasharray': '2 3' }, ribbonLayer);
+        } else {
+          createSvgElement('path', { d: ribbonPathData(startX, startY, endX, endY), fill: 'none', stroke: partColor, 'stroke-opacity': 0.3, 'stroke-width': laneWidth * 0.8 }, ribbonLayer);
+        }
+      }
+    }
+
+    // ----- part strips with their details written along them -----
+    const preferredLabelFontSize = Math.min(8.5, laneWidth * 0.95);
+    const segmentLayer = createSvgElement('g', {}, svg);
+    for (const part of timelineModel.parts) {
+      const partColor = POSTER_PART_GROUP_COLORS[part.partGroup];
+      const tintColor = mixWithWhite(partColor, POSTER_LABEL_TINT_STRENGTH);
+      for (const mounting of part.mountings) {
+        const barLeftX = barLeftXByBikeId[mounting.bikeId];
+        if (barLeftX == null) continue;
+        const laneLeftX = barLeftX + posterLaneOffsetsX[mounting.laneIndex];
+        const topY = timestampToY(mounting.endTimestamp) + 1;
+        const bottomY = timestampToY(mounting.startTimestamp) - 1;
+        const stripHeight = Math.max(1.5, bottomY - topY);
+        createSvgElement('rect', { x: laneLeftX, y: topY, width: laneWidth, height: stripHeight, rx: 1, fill: tintColor }, segmentLayer);
+        createSvgElement('rect', { x: laneLeftX, y: topY, width: Math.min(1.4, laneWidth / 4), height: stripHeight, fill: partColor }, segmentLayer);
+
+        const fittedLabel = fitTextIntoLength(part.details, preferredLabelFontSize, stripHeight - 4);
+        if (!fittedLabel) continue;
+        // Rotated -90°: text reads bottom-to-top, glyphs extend to the left of the baseline.
+        const baselineX = laneLeftX + laneWidth / 2 + fittedLabel.fontSize * 0.36;
+        const labelStartY = bottomY - 2;
+        addText(segmentLayer, fittedLabel.text, {
+          transform: `translate(${baselineX.toFixed(2)},${labelStartY.toFixed(2)}) rotate(-90)`,
+          'font-size': fittedLabel.fontSize.toFixed(2), fill: POSTER_COLORS.textPrimary,
+        });
+      }
+    }
+  }
+
+  function renderPosterTitleBand(svg, posterWidth, addText) {
+    const countBikesWithStatus = status => timelineModel.bikes.filter(bike => bike.status === status).length;
+    addText(svg, 'Bike timeline', { x: 0, y: 26, 'font-size': 26, 'font-weight': 700, fill: POSTER_COLORS.textPrimary });
+    addText(svg,
+      `As of ${formatLongDate(TODAY_TIMESTAMP)} · ${timelineModel.bikes.length} bikes, ${countBikesWithStatus('active')} active · ${timelineModel.parts.length} parts`,
+      { x: 0, y: 46, 'font-size': 11, fill: POSTER_COLORS.textSecondary });
+    addText(svg,
+      'Grey bar: bike built (frame, 2 wheels, fork, stem, handlebar, cranks, pedals). Ribbon: part moved to another bike. Dotted line: part refitted to the same bike after a break.',
+      { x: 0, y: 60, 'font-size': 10, fill: POSTER_COLORS.textMuted });
+
+    // Legend, right-aligned: part groups, then bike statuses
+    const legendFontSize = 11;
+    const legendItems = [
+      ...Object.entries(PART_GROUPS).map(([groupKey, group]) => ({ kind: 'group', groupKey, label: group.label, description: group.partTypesDescription })),
+      ...Object.entries(BIKE_STATUS_LABELS).map(([status, label]) => ({ kind: 'status', status, label })),
+    ];
+    const itemWidth = item => 14 + measureTextWidth(item.label, legendFontSize, 700)
+      + (item.description ? 4 + measureTextWidth(item.description, legendFontSize) : 0) + 16;
+    const rowY = [24, 44];
+    const firstRowItems = legendItems.filter(item => item.kind === 'group');
+    const secondRowItems = legendItems.filter(item => item.kind === 'status');
+    [firstRowItems, secondRowItems].forEach((rowItems, rowIndex) => {
+      let itemX = posterWidth - rowItems.reduce((total, item) => total + itemWidth(item), 0) + 16;
+      for (const item of rowItems) {
+        const legendItem = createSvgElement('g', { style: `color:${POSTER_COLORS.textSecondary}` }, svg);
+        if (item.kind === 'group') {
+          createSvgElement('rect', { x: itemX, y: rowY[rowIndex] - 9, width: 10, height: 10, rx: 2, fill: POSTER_PART_GROUP_COLORS[item.groupKey] }, legendItem);
+        } else {
+          legendItem.innerHTML = statusIconSvgMarkup(item.status, itemX + 5, rowY[rowIndex] - 4);
+        }
+        const labelElement = addText(legendItem, '', { x: itemX + 14, y: rowY[rowIndex], 'font-size': legendFontSize, fill: POSTER_COLORS.textSecondary });
+        const boldLabel = createSvgElement('tspan', { 'font-weight': 700, fill: POSTER_COLORS.textPrimary }, labelElement);
+        boldLabel.textContent = item.label;
+        if (item.description) {
+          const description = createSvgElement('tspan', { dx: 4 }, labelElement);
+          description.textContent = item.description;
+        }
+        itemX += itemWidth(item);
+      }
+    });
+  }
+
+  // =====================================================================
   // Summary stats, legends and table view
   // =====================================================================
 
@@ -836,6 +1144,13 @@
     }
     setTimeout(() => { copyButton.textContent = 'Copy JSON'; }, 1600);
   });
+
+  document.getElementById('print-poster-button').addEventListener('click', () => {
+    renderPoster();
+    window.print();
+  });
+  // Also covers printing via the browser menu or Ctrl/Cmd+P
+  window.addEventListener('beforeprint', renderPoster);
 
   loadData(JSON.parse(document.getElementById('bike-data').textContent));
 })();
