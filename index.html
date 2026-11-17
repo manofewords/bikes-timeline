@@ -234,6 +234,7 @@
   const LANE_GAP = 1;
   const PART_GROUP_GAP = 3;          // extra space between lanes of different part groups
   const BAR_INNER_PADDING = 5;       // space between the bar edge and the first/last lane
+  const RIBBON_TRACK_GAP = 1;        // empty space between the tracks of ribbons leaving a bike together
   const CONNECTOR_GAP_SIZE = 3;      // gap above a departing ribbon, and between an arriving ribbon and its new strip
   const GAP_BETWEEN_BIKES = 24;
   const GAP_BETWEEN_BIKE_TYPES = 34;
@@ -751,7 +752,7 @@
     }
 
     const { ribbons, stripAdjustmentsByMounting } = computeTransferRibbons({
-      laneCenterX, timestampToY, trackSpacing: LANE_WIDTH * 1.5, ribbonWidth: LANE_WIDTH, connectorGapSize: CONNECTOR_GAP_SIZE,
+      laneCenterX, timestampToY, trackSpacing: LANE_WIDTH + RIBBON_TRACK_GAP, ribbonWidth: LANE_WIDTH, connectorGapSize: CONNECTOR_GAP_SIZE,
     });
     for (const transfer of ribbons) {
       const ribbon = createSvgElement('path', {
@@ -1111,7 +1112,7 @@
     }
     const posterRibbonWidth = laneWidth * 0.8;
     const { ribbons, stripAdjustmentsByMounting } = computeTransferRibbons({
-      laneCenterX, timestampToY, trackSpacing: laneWidth * 1.5, ribbonWidth: posterRibbonWidth, connectorGapSize: CONNECTOR_GAP_SIZE,
+      laneCenterX, timestampToY, trackSpacing: posterRibbonWidth + RIBBON_TRACK_GAP, ribbonWidth: posterRibbonWidth, connectorGapSize: CONNECTOR_GAP_SIZE,
     });
     for (const transfer of ribbons) {
       createSvgElement('path', {
