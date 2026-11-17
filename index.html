@@ -234,7 +234,7 @@
   const LANE_GAP = 1;
   const PART_GROUP_GAP = 3;          // extra space between lanes of different part groups
   const BAR_INNER_PADDING = 5;       // space between the bar edge and the first/last lane
-  const DEPARTURE_GAP_SIZE = 3;      // gap cut into a strip right above where a part leaves with a rebuild
+  const CONNECTOR_GAP_SIZE = 3;      // gap above a departing ribbon, and between an arriving ribbon and its new strip
   const GAP_BETWEEN_BIKES = 24;
   const GAP_BETWEEN_BIKE_TYPES = 34;
   const YEAR_AXIS_WIDTH = 52;
@@ -284,11 +284,25 @@
   //   | |
   //
   // A part that leaves on its own leaves exactly at the top of its strip (no gap).
+  //
+  // On the new bike, the ribbon stops a small gap below the new strip, so the strip's
+  // bottom edge marks the exact start date. If the incoming part replaces a part that was
+  // still in that lane, the replaced part's strip is cut short just below the incoming
+  // ribbon, so the vertical leg of the L stays visible:
+  //
+  //   new bike lane
+  //     | |   ← incoming part, starts at its real date
+  //           ← gap
+  //     |░|   ← vertical leg of the ribbon
+  //   ══╝░    ← horizontal track
+  //           ← gap
+  //     | |   ← replaced part, cut short
+
   // Track order: the ribbon that turns up into the lane nearest the old bike gets the
   // highest track, so the ribbons of one rebuild don't cross each other.
   // Built bars and strips always keep their real dates.
   // ---------------------------------------------------------------------
-  function computeTransferRibbons({ laneCenterX, timestampToY, trackSpacing, ribbonWidth }) {
+  function computeTransferRibbons({ laneCenterX, timestampToY, trackSpacing, ribbonWidth, connectorGapSize }) {
     // Group departures by (old bike, date): everything leaving a bike together shares one set of tracks.
     const departureGroups = new Map();
     for (const part of timelineModel.parts) {
@@ -306,7 +320,13 @@
     }
 
     const ribbons = [];
-    const departureByMounting = new Map(); // old mounting -> { departureY, hasGapAbove }
+    // mounting -> { departureY, hasGapAbove, cutTopAtY }: how that mounting's strip must be drawn
+    const stripAdjustmentsByMounting = new Map();
+    const adjustmentsFor = mounting => {
+      if (!stripAdjustmentsByMounting.has(mounting)) stripAdjustmentsByMounting.set(mounting, {});
+      return stripAdjustmentsByMounting.get(mounting);
+    };
+
     for (const departures of departureGroups.values()) {
       const leavesTogether = departures.length > 1;
       // Right-going and left-going ribbons each get their own track sequence.
@@ -318,27 +338,63 @@
           const moveDateY = timestampToY(transfer.previousMounting.endTimestamp);
           // A lone part runs flush with the top of its strip; parts of a rebuild leave one step apart.
           const departureY = leavesTogether ? moveDateY + (trackIndex + 1) * trackSpacing : moveDateY + ribbonWidth / 2;
-          const arrivalY = timestampToY(transfer.nextMounting.startTimestamp);
-          departureByMounting.set(transfer.previousMounting, { departureY, hasGapAbove: leavesTogether });
+          // The new strip's bottom edge sits 1px above its start date; the ribbon stops a gap below that.
+          const newStripBottomY = timestampToY(transfer.nextMounting.startTimestamp) - 1;
+          const ribbonEndY = Math.min(newStripBottomY + connectorGapSize, departureY);
+
+          Object.assign(adjustmentsFor(transfer.previousMounting), { departureY, hasGapAbove: leavesTogether });
+          cutReplacedPartBelowTrack(transfer, departureY, ribbonEndY);
           ribbons.push({
             ...transfer,
-            pathData: `M${transfer.startX},${departureY} H${transfer.endX} V${arrivalY}`,
+            pathData: `M${transfer.startX},${departureY} H${transfer.endX} V${ribbonEndY}`,
           });
         });
       }
     }
-    return { ribbons, departureByMounting };
+
+    // Any other part in the arrival lane whose strip overlaps the ribbon's vertical leg
+    // (i.e. the part being replaced) gets cut short just below the horizontal track.
+    function cutReplacedPartBelowTrack(transfer, departureY, ribbonEndY) {
+      const trackBottomEdgeY = departureY + ribbonWidth / 2;
+      const destinationBike = timelineModel.bikesById[transfer.nextMounting.bikeId];
+      for (const otherMounting of destinationBike.mountings) {
+        if (otherMounting === transfer.nextMounting || otherMounting.laneIndex !== transfer.nextMounting.laneIndex) continue;
+        const otherStripTopY = timestampToY(otherMounting.endTimestamp) + 1;
+        const otherStripBottomY = timestampToY(otherMounting.startTimestamp) - 1;
+        const overlapsLeg = otherStripTopY < trackBottomEdgeY + connectorGapSize && otherStripBottomY > ribbonEndY;
+        if (!overlapsLeg) continue;
+        const adjustments = adjustmentsFor(otherMounting);
+        adjustments.cutTopAtY = Math.max(adjustments.cutTopAtY ?? -Infinity, trackBottomEdgeY + connectorGapSize);
+      }
+    }
+
+    return { ribbons, stripAdjustmentsByMounting };
   }
 
-  // Splits a part's strip into the pieces to draw. If the part leaves with a rebuild, the strip
-  // is cut just above the departing ribbon; the lower piece is the "main" one (it gets the label).
-  function stripPiecesForMounting(mounting, topY, bottomY, departureByMounting, ribbonWidth, departureGapSize) {
-    const departure = departureByMounting.get(mounting);
-    if (!departure || !departure.hasGapAbove) return [{ topY, bottomY, isMainPiece: true }];
-    const ribbonTopY = departure.departureY - ribbonWidth / 2;
-    const pieces = [{ topY: Math.min(ribbonTopY, bottomY), bottomY, isMainPiece: true }];
-    const stubBottomY = ribbonTopY - departureGapSize;
-    if (stubBottomY - topY >= 1) pieces.push({ topY, bottomY: stubBottomY, isMainPiece: false });
+  // Splits a part's strip into the pieces to draw (possibly none):
+  // - if the part leaves with a rebuild, the strip is cut just above the departing ribbon,
+  //   leaving a short stub up to the real end date;
+  // - if an incoming part replaces it, the strip is cut short below the incoming ribbon (no stub).
+  // The lowest piece is the "main" one (it gets the poster label).
+  function stripPiecesForMounting(mounting, topY, bottomY, stripAdjustmentsByMounting, ribbonWidth, connectorGapSize) {
+    const adjustments = stripAdjustmentsByMounting.get(mounting) || {};
+    const mainPiece = { topY, bottomY, isMainPiece: true };
+    let stubPiece = null;
+
+    if (adjustments.hasGapAbove) {
+      const ribbonTopY = adjustments.departureY - ribbonWidth / 2;
+      mainPiece.topY = Math.min(ribbonTopY, bottomY);
+      const stubBottomY = ribbonTopY - connectorGapSize;
+      if (stubBottomY - topY >= 1) stubPiece = { topY, bottomY: stubBottomY, isMainPiece: false };
+    }
+    if (adjustments.cutTopAtY != null) {
+      mainPiece.topY = Math.max(mainPiece.topY, adjustments.cutTopAtY);
+      stubPiece = null; // the incoming ribbon occupies the lane above
+    }
+
+    const pieces = [];
+    if (mainPiece.bottomY - mainPiece.topY >= 1) pieces.push(mainPiece);
+    if (stubPiece) pieces.push(stubPiece);
     return pieces;
   }
 
@@ -597,8 +653,8 @@
     renderYearGrid(svg, svgWidth, timestampToY);
     renderBikeHeaders(svg);
     renderBuiltBars(svg, timestampToY);
-    const departureByMounting = renderPartRibbons(svg, timestampToY);
-    renderPartSegments(svg, timestampToY, departureByMounting);
+    const stripAdjustmentsByMounting = renderPartRibbons(svg, timestampToY);
+    renderPartSegments(svg, timestampToY, stripAdjustmentsByMounting);
 
     svg.addEventListener('click', event => { if (event.target === svg) togglePinnedHighlight(null); });
     applyHighlight();
@@ -694,8 +750,8 @@
       }
     }
 
-    const { ribbons, departureByMounting } = computeTransferRibbons({
-      laneCenterX, timestampToY, trackSpacing: LANE_WIDTH * 1.5, ribbonWidth: LANE_WIDTH,
+    const { ribbons, stripAdjustmentsByMounting } = computeTransferRibbons({
+      laneCenterX, timestampToY, trackSpacing: LANE_WIDTH * 1.5, ribbonWidth: LANE_WIDTH, connectorGapSize: CONNECTOR_GAP_SIZE,
     });
     for (const transfer of ribbons) {
       const ribbon = createSvgElement('path', {
@@ -705,10 +761,10 @@
       }, ribbonLayer);
       attachPartHoverHandlers(ribbon, transfer.part);
     }
-    return departureByMounting;
+    return stripAdjustmentsByMounting;
   }
 
-  function renderPartSegments(svg, timestampToY, departureByMounting) {
+  function renderPartSegments(svg, timestampToY, stripAdjustmentsByMounting) {
     const segmentLayer = createSvgElement('g', {}, svg);
     for (const part of timelineModel.parts) {
       for (const mounting of part.mountings) {
@@ -717,7 +773,7 @@
         // 1px inset at each end leaves a visible gap between a part and its replacement
         const topY = timestampToY(mounting.endTimestamp) + 1;
         const bottomY = timestampToY(mounting.startTimestamp) - 1;
-        const pieces = stripPiecesForMounting(mounting, topY, bottomY, departureByMounting, LANE_WIDTH, DEPARTURE_GAP_SIZE);
+        const pieces = stripPiecesForMounting(mounting, topY, bottomY, stripAdjustmentsByMounting, LANE_WIDTH, CONNECTOR_GAP_SIZE);
         for (const piece of pieces) {
           const segment = createSvgElement('rect', {
             class: 'part-segment', 'data-part-id': part.id, 'data-bike-id': bike.id,
@@ -1054,8 +1110,8 @@
       }
     }
     const posterRibbonWidth = laneWidth * 0.8;
-    const { ribbons, departureByMounting } = computeTransferRibbons({
-      laneCenterX, timestampToY, trackSpacing: laneWidth * 1.5, ribbonWidth: posterRibbonWidth,
+    const { ribbons, stripAdjustmentsByMounting } = computeTransferRibbons({
+      laneCenterX, timestampToY, trackSpacing: laneWidth * 1.5, ribbonWidth: posterRibbonWidth, connectorGapSize: CONNECTOR_GAP_SIZE,
     });
     for (const transfer of ribbons) {
       createSvgElement('path', {
@@ -1076,7 +1132,7 @@
         const laneLeftX = barLeftX + posterLaneOffsetsX[mounting.laneIndex];
         const topY = timestampToY(mounting.endTimestamp) + 1;
         const bottomY = timestampToY(mounting.startTimestamp) - 1;
-        const pieces = stripPiecesForMounting(mounting, topY, bottomY, departureByMounting, posterRibbonWidth, DEPARTURE_GAP_SIZE);
+        const pieces = stripPiecesForMounting(mounting, topY, bottomY, stripAdjustmentsByMounting, posterRibbonWidth, CONNECTOR_GAP_SIZE);
         for (const piece of pieces) {
           const pieceHeight = Math.max(1.5, piece.bottomY - piece.topY);
           createSvgElement('rect', { x: laneLeftX, y: piece.topY, width: laneWidth, height: pieceHeight, rx: 1, fill: tintColor }, segmentLayer);
@@ -1084,6 +1140,7 @@
         }
 
         const mainPiece = pieces.find(piece => piece.isMainPiece);
+        if (!mainPiece) continue;
         const fittedLabel = fitTextIntoLength(part.details, preferredLabelFontSize, mainPiece.bottomY - mainPiece.topY - 4);
         if (!fittedLabel) continue;
         // Rotated -90°: text reads bottom-to-top, glyphs extend to the left of the baseline.
