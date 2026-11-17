@@ -263,10 +263,68 @@
     laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING,
   });
 
-  // Ribbon shape: leave the old bike upwards and enter the new bike from below (time runs upwards).
-  function ribbonPathData(startX, startY, endX, endY) {
-    const curveControlOffset = Math.max(18, Math.min(70, Math.abs(endX - startX) * 0.12));
-    return `M${startX},${startY} C${startX},${startY - curveControlOffset} ${endX},${endY + curveControlOffset} ${endX},${endY}`;
+  // ---------------------------------------------------------------------
+  // Transfer ribbons, staggered into tracks
+  //
+  // Parts that move between the same two bikes on the same date form a "bundle".
+  // Each ribbon in a bundle gets its own track: it branches off the old bike's strip
+  // a few pixels *before* the move date (lower on the chart), crosses the gap at that
+  // height, reaches its lane on the new bike at the same offset, and then rises inside
+  // that lane up to where the new strip starts. Strips and built bars keep their real dates.
+  //
+  //   old bike       new bike
+  //   │ │ │          ┊ ┊ ┊      ← strips on the new bike start at the real date
+  //   │ │ ╰───────────╯ ┊ ┊    track 1
+  //   │ ╰───────────────╯ ┊    track 2
+  //   ╰───────────────────╯    track 3
+  //
+  // Track order: the ribbon that arrives in the lane closest to the old bike gets the
+  // highest track and turns up first, so the ribbons in a bundle don't cross each other.
+  // ---------------------------------------------------------------------
+  function computeTransferRibbons({ laneCenterX, timestampToY, trackSpacing, cornerRadius }) {
+    const bundles = new Map();
+    for (const part of timelineModel.parts) {
+      for (let index = 0; index < part.mountings.length - 1; index++) {
+        const previousMounting = part.mountings[index];
+        const nextMounting = part.mountings[index + 1];
+        if (previousMounting.bikeId === nextMounting.bikeId) continue; // same-bike breaks are drawn as storage links
+        const startX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
+        const endX = laneCenterX(nextMounting.bikeId, nextMounting.laneIndex);
+        if (startX == null || endX == null) continue;
+        const bundleKey = `${previousMounting.bikeId}>${nextMounting.bikeId}@${previousMounting.endTimestamp}`;
+        if (!bundles.has(bundleKey)) bundles.set(bundleKey, []);
+        bundles.get(bundleKey).push({ part, previousMounting, nextMounting, startX, endX });
+      }
+    }
+
+    const ribbons = [];
+    for (const bundle of bundles.values()) {
+      const movesRight = bundle[0].endX > bundle[0].startX;
+      bundle.sort((first, second) => movesRight ? first.endX - second.endX : second.endX - first.endX);
+      bundle.forEach((transfer, trackIndex) => {
+        const trackOffset = (trackIndex + 1) * trackSpacing; // always leave early, even for a single part
+        const leaveY = timestampToY(transfer.previousMounting.endTimestamp) + trackOffset;
+        const arriveY = timestampToY(transfer.nextMounting.startTimestamp);
+        ribbons.push({
+          ...transfer,
+          pathData: trackRibbonPathData(transfer.startX, leaveY, transfer.endX, arriveY + trackOffset, arriveY, cornerRadius),
+        });
+      });
+    }
+    return ribbons;
+  }
+
+  // Horizontal-ish S-curve from the old lane to just before the new lane, a rounded
+  // corner, then straight up the new lane to the start of the new strip.
+  function trackRibbonPathData(startX, startTrackY, endX, endTrackY, stripStartY, cornerRadius) {
+    const direction = endX >= startX ? 1 : -1;
+    const corner = Math.min(cornerRadius, Math.abs(endX - startX) / 2, endTrackY - stripStartY);
+    const cornerStartX = endX - direction * corner;
+    const curveMidX = startX + (cornerStartX - startX) / 2;
+    return `M${startX},${startTrackY}`
+      + ` C${curveMidX},${startTrackY} ${curveMidX},${endTrackY} ${cornerStartX},${endTrackY}`
+      + ` Q${endX},${endTrackY} ${endX},${endTrackY - corner}`
+      + ` L${endX},${stripStartY}`;
   }
 
   // part type -> list of lane indexes it may occupy
@@ -597,35 +655,40 @@
     }
   }
 
-  // Ribbons connect consecutive mountings of the same part on different bikes.
+  // Ribbons connect consecutive mountings of the same part on different bikes (see computeTransferRibbons).
   // If a part returns to the same bike after a pause, a dashed line marks the gap instead.
   function renderPartRibbons(svg, timestampToY) {
     const ribbonLayer = createSvgElement('g', {}, svg);
+    const laneCenterX = (bikeId, laneIndex) => {
+      const bike = timelineModel.bikesById[bikeId];
+      return bike.barLeftX == null ? null : bike.barLeftX + laneOffsetsX[laneIndex] + LANE_WIDTH / 2;
+    };
+
     for (const part of timelineModel.parts) {
       for (let index = 0; index < part.mountings.length - 1; index++) {
         const previousMounting = part.mountings[index];
         const nextMounting = part.mountings[index + 1];
-        const previousBike = timelineModel.bikesById[previousMounting.bikeId];
-        const nextBike = timelineModel.bikesById[nextMounting.bikeId];
-        if (previousBike.barLeftX == null || nextBike.barLeftX == null) continue;
-
-        const startX = previousBike.barLeftX + laneOffsetsX[previousMounting.laneIndex] + LANE_WIDTH / 2;
-        const startY = timestampToY(previousMounting.endTimestamp);
-        const endX = nextBike.barLeftX + laneOffsetsX[nextMounting.laneIndex] + LANE_WIDTH / 2;
-        const endY = timestampToY(nextMounting.startTimestamp);
-        const partColor = `var(--part-group-${part.partGroup})`;
-
-        if (previousBike === nextBike) {
-          createSvgElement('line', { class: 'storage-link', 'data-part-id': part.id, x1: startX, x2: endX, y1: startY, y2: endY, stroke: partColor }, ribbonLayer);
-          continue;
-        }
-
-        const ribbon = createSvgElement('path', {
-          class: 'part-ribbon', 'data-part-id': part.id, stroke: partColor, 'stroke-width': LANE_WIDTH,
-          d: ribbonPathData(startX, startY, endX, endY),
+        if (previousMounting.bikeId !== nextMounting.bikeId) continue;
+        const linkX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
+        if (linkX == null) continue;
+        createSvgElement('line', {
+          class: 'storage-link', 'data-part-id': part.id, stroke: `var(--part-group-${part.partGroup})`,
+          x1: linkX, x2: laneCenterX(nextMounting.bikeId, nextMounting.laneIndex),
+          y1: timestampToY(previousMounting.endTimestamp), y2: timestampToY(nextMounting.startTimestamp),
         }, ribbonLayer);
-        attachPartHoverHandlers(ribbon, part);
       }
+    }
+
+    const transferRibbons = computeTransferRibbons({
+      laneCenterX, timestampToY, trackSpacing: LANE_WIDTH * 1.5, cornerRadius: LANE_WIDTH * 1.5,
+    });
+    for (const transfer of transferRibbons) {
+      const ribbon = createSvgElement('path', {
+        class: 'part-ribbon', 'data-part-id': transfer.part.id,
+        stroke: `var(--part-group-${transfer.part.partGroup})`, 'stroke-width': LANE_WIDTH,
+        d: transfer.pathData,
+      }, ribbonLayer);
+      attachPartHoverHandlers(ribbon, transfer.part);
     }
   }
 
@@ -954,25 +1017,32 @@
       }
     }
 
-    // ----- ribbons and same-bike storage links -----
-    const laneCenterX = (bikeId, laneIndex) => barLeftXByBikeId[bikeId] + posterLaneOffsetsX[laneIndex] + laneWidth / 2;
+    // ----- ribbons (see computeTransferRibbons) and same-bike storage links -----
+    const laneCenterX = (bikeId, laneIndex) =>
+      barLeftXByBikeId[bikeId] == null ? null : barLeftXByBikeId[bikeId] + posterLaneOffsetsX[laneIndex] + laneWidth / 2;
     const ribbonLayer = createSvgElement('g', {}, svg);
     for (const part of timelineModel.parts) {
-      const partColor = POSTER_PART_GROUP_COLORS[part.partGroup];
       for (let index = 0; index < part.mountings.length - 1; index++) {
         const previousMounting = part.mountings[index];
         const nextMounting = part.mountings[index + 1];
-        if (barLeftXByBikeId[previousMounting.bikeId] == null || barLeftXByBikeId[nextMounting.bikeId] == null) continue;
-        const startX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
-        const startY = timestampToY(previousMounting.endTimestamp);
-        const endX = laneCenterX(nextMounting.bikeId, nextMounting.laneIndex);
-        const endY = timestampToY(nextMounting.startTimestamp);
-        if (previousMounting.bikeId === nextMounting.bikeId) {
-          createSvgElement('line', { x1: startX, x2: endX, y1: startY, y2: endY, stroke: partColor, 'stroke-width': 1.5, 'stroke-dasharray': '2 3' }, ribbonLayer);
-        } else {
-          createSvgElement('path', { d: ribbonPathData(startX, startY, endX, endY), fill: 'none', stroke: partColor, 'stroke-opacity': 0.3, 'stroke-width': laneWidth * 0.8 }, ribbonLayer);
-        }
+        if (previousMounting.bikeId !== nextMounting.bikeId) continue;
+        const linkX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
+        if (linkX == null) continue;
+        createSvgElement('line', {
+          x1: linkX, x2: linkX, y1: timestampToY(previousMounting.endTimestamp), y2: timestampToY(nextMounting.startTimestamp),
+          stroke: POSTER_PART_GROUP_COLORS[part.partGroup], 'stroke-width': 1.5, 'stroke-dasharray': '2 3',
+        }, ribbonLayer);
       }
+    }
+    const posterRibbonWidth = laneWidth * 0.8;
+    const transferRibbons = computeTransferRibbons({
+      laneCenterX, timestampToY, trackSpacing: laneWidth * 1.5, cornerRadius: laneWidth * 1.5,
+    });
+    for (const transfer of transferRibbons) {
+      createSvgElement('path', {
+        d: transfer.pathData, fill: 'none', stroke: POSTER_PART_GROUP_COLORS[transfer.part.partGroup],
+        'stroke-opacity': 0.3, 'stroke-width': posterRibbonWidth,
+      }, ribbonLayer);
     }
 
     // ----- part strips with their details written along them -----
