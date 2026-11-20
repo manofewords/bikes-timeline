@@ -102,10 +102,10 @@
   .bike-name { fill: var(--text-primary); font-size: 12px; font-weight: 600; }
   .bike-header { cursor: default; }
   .bike-header:hover .bike-name { text-decoration: underline; }
-  .part-segment { cursor: pointer; transition: opacity .12s; }
+  .part-segment, .part-departure-dot { cursor: pointer; transition: opacity .12s; }
   .part-ribbon { fill: none; stroke-linejoin: miter; stroke-linecap: butt; stroke-opacity: .32; transition: stroke-opacity .12s, opacity .12s; pointer-events: stroke; cursor: pointer; }
   .storage-link { fill: none; stroke-width: 1.5; stroke-dasharray: 2 3; opacity: .7; }
-  .has-focus .part-segment:not(.is-highlighted) { opacity: .12; }
+  .has-focus .part-segment:not(.is-highlighted), .has-focus .part-departure-dot:not(.is-highlighted) { opacity: .12; }
   .has-focus .part-ribbon:not(.is-highlighted), .has-focus .storage-link:not(.is-highlighted) { stroke-opacity: .04; opacity: .3; }
   .has-focus .part-ribbon.is-highlighted { stroke-opacity: .75; }
   .has-focus .built-bar:not(.is-highlighted) { opacity: .55; }
@@ -249,7 +249,8 @@
   const PART_GROUP_GAP = 3;          // extra space between lanes of different part groups
   const BAR_INNER_PADDING = 5;       // space between the bar edge and the first/last lane
   const RIBBON_TRACK_GAP = 1;        // empty space between the tracks of ribbons leaving a bike together
-  const CONNECTOR_GAP_SIZE = 3;      // gap above a departing ribbon, and between an arriving ribbon and its new strip
+  const CONNECTOR_GAP_SIZE = 3;      // gap between an arriving ribbon and its new strip
+  const DEPARTURE_DOT_SHADE = 0.6;   // departure dot colour: this much of the strip colour, the rest black
   const GAP_BETWEEN_BIKES = 24;
   const GAP_BETWEEN_BIKE_TYPES = 34;
   const YEAR_AXIS_WIDTH = 52;
@@ -287,37 +288,36 @@
   // on the new bike, and turns 90° up into the bottom of the new strip.
   //
   // When several parts leave the same bike on the same date (a rebuild), each one gets
-  // its own track: track k leaves k steps *before* the move date (lower on the chart),
-  // and a small gap is cut into the old strip right above the departure point so it's
-  // clear where the part leaves. The stub above the gap still runs to the real end date.
+  // its own track: track k leaves k steps *before* the move date (lower on the chart).
+  // The old strip still runs unbroken to its real end date, and a dot in a darker shade
+  // of the strip's colour marks where the ribbon leaves it.
   //
   //   old bike                new bike
-  //    _                     |_|
-  //   | |                    | |
-  //   |_|  ← stub to the     | |
-  //    __    real end date   | |
-  //   |  ____________________| |   ← track 1
+  //    ◠                     |_|
+  //   | |  ← strip to the    | |
+  //   | |    real end date   | |
+  //   |●|____________________| |   ← track 1, ● = departure dot
   //   | |
   //
-  // A part that leaves on its own leaves exactly at the top of its strip (no gap).
+  // A part that leaves on its own leaves exactly at the top of its strip (no dot).
   //
   // On the new bike, the ribbon stops a small gap below the new strip, so the strip's
   // bottom edge marks the exact start date. If the incoming part replaces a part that was
-  // still in that lane, the replaced part's strip is cut short just below the incoming
-  // ribbon, so the vertical leg of the L stays visible:
+  // still in that lane, the replaced part keeps its real end date: the ribbon (drawn below
+  // the strips) runs underneath it, so the lane stays unbroken. Its vertical leg shows
+  // through when the part is highlighted, because the other strips are dimmed then:
   //
   //   new bike lane
   //     | |   ← incoming part, starts at its real date
-  //           ← gap
-  //     |░|   ← vertical leg of the ribbon
-  //   ══╝░    ← horizontal track
-  //           ← gap
-  //     | |   ← replaced part, cut short
+  //     | |   ← replaced part, runs to its real end date
+  //   ══╡ |   ← horizontal track, ending under the lane
+  //     | |
 
   // Track order: the ribbon that turns up into the lane nearest the old bike gets the
   // highest track, so the ribbons of one rebuild don't cross each other.
   // Built bars and strips always keep their real dates.
   // ---------------------------------------------------------------------
+  // Returns the ribbons, plus the departure dots ({ part, x, y }) of the parts that leave in a rebuild.
   function computeTransferRibbons({ laneCenterX, timestampToY, trackSpacing, ribbonWidth, connectorGapSize }) {
     // Group departures by (old bike, date): everything leaving a bike together shares one set of tracks.
     const departureGroups = new Map();
@@ -336,12 +336,7 @@
     }
 
     const ribbons = [];
-    // mounting -> { departureY, hasGapAbove, cutTopAtY }: how that mounting's strip must be drawn
-    const stripAdjustmentsByMounting = new Map();
-    const adjustmentsFor = mounting => {
-      if (!stripAdjustmentsByMounting.has(mounting)) stripAdjustmentsByMounting.set(mounting, {});
-      return stripAdjustmentsByMounting.get(mounting);
-    };
+    const departureDots = [];
 
     for (const departures of departureGroups.values()) {
       const leavesTogether = departures.length > 1;
@@ -358,8 +353,7 @@
           const newStripBottomY = timestampToY(transfer.nextMounting.startTimestamp) - 1;
           const ribbonEndY = Math.min(newStripBottomY + connectorGapSize, departureY);
 
-          Object.assign(adjustmentsFor(transfer.previousMounting), { departureY, hasGapAbove: leavesTogether });
-          cutReplacedPartBelowTrack(transfer, departureY, ribbonEndY);
+          if (leavesTogether) departureDots.push({ part: transfer.part, x: transfer.startX, y: departureY });
           ribbons.push({
             ...transfer,
             pathData: `M${transfer.startX},${departureY} H${transfer.endX} V${ribbonEndY}`,
@@ -368,50 +362,7 @@
       }
     }
 
-    // Any other part in the arrival lane whose strip overlaps the ribbon's vertical leg
-    // (i.e. the part being replaced) gets cut short just below the horizontal track.
-    function cutReplacedPartBelowTrack(transfer, departureY, ribbonEndY) {
-      const trackBottomEdgeY = departureY + ribbonWidth / 2;
-      const destinationBike = timelineModel.bikesById[transfer.nextMounting.bikeId];
-      for (const otherMounting of destinationBike.mountings) {
-        if (otherMounting === transfer.nextMounting || otherMounting.laneIndex !== transfer.nextMounting.laneIndex) continue;
-        const otherStripTopY = timestampToY(otherMounting.endTimestamp) + 1;
-        const otherStripBottomY = timestampToY(otherMounting.startTimestamp) - 1;
-        const overlapsLeg = otherStripTopY < trackBottomEdgeY + connectorGapSize && otherStripBottomY > ribbonEndY;
-        if (!overlapsLeg) continue;
-        const adjustments = adjustmentsFor(otherMounting);
-        adjustments.cutTopAtY = Math.max(adjustments.cutTopAtY ?? -Infinity, trackBottomEdgeY + connectorGapSize);
-      }
-    }
-
-    return { ribbons, stripAdjustmentsByMounting };
-  }
-
-  // Splits a part's strip into the pieces to draw (possibly none):
-  // - if the part leaves with a rebuild, the strip is cut just above the departing ribbon,
-  //   leaving a short stub up to the real end date;
-  // - if an incoming part replaces it, the strip is cut short below the incoming ribbon (no stub).
-  // The lowest piece is the "main" one (it gets the poster label).
-  function stripPiecesForMounting(mounting, topY, bottomY, stripAdjustmentsByMounting, ribbonWidth, connectorGapSize) {
-    const adjustments = stripAdjustmentsByMounting.get(mounting) || {};
-    const mainPiece = { topY, bottomY, isMainPiece: true };
-    let stubPiece = null;
-
-    if (adjustments.hasGapAbove) {
-      const ribbonTopY = adjustments.departureY - ribbonWidth / 2;
-      mainPiece.topY = Math.min(ribbonTopY, bottomY);
-      const stubBottomY = ribbonTopY - connectorGapSize;
-      if (stubBottomY - topY >= 1) stubPiece = { topY, bottomY: stubBottomY, isMainPiece: false };
-    }
-    if (adjustments.cutTopAtY != null) {
-      mainPiece.topY = Math.max(mainPiece.topY, adjustments.cutTopAtY);
-      stubPiece = null; // the incoming ribbon occupies the lane above
-    }
-
-    const pieces = [];
-    if (mainPiece.bottomY - mainPiece.topY >= 1) pieces.push(mainPiece);
-    if (stubPiece) pieces.push(stubPiece);
-    return pieces;
+    return { ribbons, departureDots };
   }
 
   // part type -> its lane index in LANE_DEFINITIONS
@@ -660,8 +611,9 @@
     renderYearGrid(svg, svgWidth, timestampToY);
     renderBikeHeaders(svg);
     renderBuiltBars(svg, timestampToY);
-    const stripAdjustmentsByMounting = renderPartRibbons(svg, timestampToY);
-    renderPartSegments(svg, timestampToY, stripAdjustmentsByMounting);
+    const departureDots = renderPartRibbons(svg, timestampToY);
+    renderPartSegments(svg, timestampToY);
+    renderDepartureDots(svg, departureDots);
 
     svg.addEventListener('click', event => { if (event.target === svg) togglePinnedHighlight(null); });
     applyHighlight();
@@ -753,7 +705,7 @@
       }
     }
 
-    const { ribbons, stripAdjustmentsByMounting } = computeTransferRibbons({
+    const { ribbons, departureDots } = computeTransferRibbons({
       laneCenterX, timestampToY, trackSpacing: LANE_WIDTH + RIBBON_TRACK_GAP, ribbonWidth: LANE_WIDTH, connectorGapSize: CONNECTOR_GAP_SIZE,
     });
     for (const transfer of ribbons) {
@@ -764,10 +716,10 @@
       }, ribbonLayer);
       attachPartHoverHandlers(ribbon, transfer.part);
     }
-    return stripAdjustmentsByMounting;
+    return departureDots;
   }
 
-  function renderPartSegments(svg, timestampToY, stripAdjustmentsByMounting) {
+  function renderPartSegments(svg, timestampToY) {
     const segmentLayer = createSvgElement('g', {}, svg);
     for (const part of timelineModel.parts) {
       for (const mounting of part.mountings) {
@@ -776,17 +728,27 @@
         // 1px inset at each end leaves a visible gap between a part and its replacement
         const topY = timestampToY(mounting.endTimestamp) + 1;
         const bottomY = timestampToY(mounting.startTimestamp) - 1;
-        const pieces = stripPiecesForMounting(mounting, topY, bottomY, stripAdjustmentsByMounting, LANE_WIDTH, CONNECTOR_GAP_SIZE);
-        for (const piece of pieces) {
-          const segment = createSvgElement('rect', {
-            class: 'part-segment', 'data-part-id': part.id, 'data-bike-id': bike.id,
-            x: bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[mounting.laneIndex], y: piece.topY,
-            width: LANE_WIDTH, height: Math.max(1.5, piece.bottomY - piece.topY), rx: 1.5,
-            fill: `var(--part-group-${part.partGroup})`,
-          }, segmentLayer);
-          attachPartHoverHandlers(segment, part);
-        }
+        const segment = createSvgElement('rect', {
+          class: 'part-segment', 'data-part-id': part.id, 'data-bike-id': bike.id,
+          x: bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[mounting.laneIndex], y: topY,
+          width: LANE_WIDTH, height: Math.max(1.5, bottomY - topY), rx: LANE_WIDTH / 2, // fully round ends
+          fill: `var(--part-group-${part.partGroup})`,
+        }, segmentLayer);
+        attachPartHoverHandlers(segment, part);
       }
+    }
+  }
+
+  // A dot in a darker shade of the strip's colour where a rebuild ribbon leaves the strip.
+  function renderDepartureDots(svg, departureDots) {
+    const dotLayer = createSvgElement('g', {}, svg);
+    for (const dot of departureDots) {
+      const dotElement = createSvgElement('circle', {
+        class: 'part-departure-dot', 'data-part-id': dot.part.id,
+        cx: dot.x, cy: dot.y, r: LANE_WIDTH / 2,
+        fill: `color-mix(in srgb, var(--part-group-${dot.part.partGroup}) ${Math.round(DEPARTURE_DOT_SHADE * 100)}%, black)`,
+      }, dotLayer);
+      attachPartHoverHandlers(dotElement, dot.part);
     }
   }
 
@@ -935,6 +897,11 @@
     const channels = [1, 3, 5].map(offset => parseInt(hexColor.slice(offset, offset + 2), 16));
     const mixed = channels.map(channel => Math.round(255 + (channel - 255) * strength));
     return '#' + mixed.map(channel => channel.toString(16).padStart(2, '0')).join('');
+  }
+
+  function mixWithBlack(hexColor, strength) {
+    const channels = [1, 3, 5].map(offset => parseInt(hexColor.slice(offset, offset + 2), 16));
+    return '#' + channels.map(channel => Math.round(channel * strength).toString(16).padStart(2, '0')).join('');
   }
 
   const textMeasuringContext = document.createElement('canvas').getContext('2d');
@@ -1114,7 +1081,7 @@
       }
     }
     const posterRibbonWidth = laneWidth * 0.8;
-    const { ribbons, stripAdjustmentsByMounting } = computeTransferRibbons({
+    const { ribbons, departureDots } = computeTransferRibbons({
       laneCenterX, timestampToY, trackSpacing: posterRibbonWidth + RIBBON_TRACK_GAP, ribbonWidth: posterRibbonWidth, connectorGapSize: CONNECTOR_GAP_SIZE,
     });
     for (const transfer of ribbons) {
@@ -1136,25 +1103,31 @@
         const laneLeftX = barLeftX + laneOffsetX(mounting.bikeId, mounting.laneIndex);
         const topY = timestampToY(mounting.endTimestamp) + 1;
         const bottomY = timestampToY(mounting.startTimestamp) - 1;
-        const pieces = stripPiecesForMounting(mounting, topY, bottomY, stripAdjustmentsByMounting, posterRibbonWidth, CONNECTOR_GAP_SIZE);
-        for (const piece of pieces) {
-          const pieceHeight = Math.max(1.5, piece.bottomY - piece.topY);
-          createSvgElement('rect', { x: laneLeftX, y: piece.topY, width: laneWidth, height: pieceHeight, rx: 1, fill: tintColor }, segmentLayer);
-          createSvgElement('rect', { x: laneLeftX, y: piece.topY, width: Math.min(1.4, laneWidth / 4), height: pieceHeight, fill: partColor }, segmentLayer);
+        const stripHeight = Math.max(1.5, bottomY - topY);
+        const endRadius = laneWidth / 2; // fully round ends
+        createSvgElement('rect', { x: laneLeftX, y: topY, width: laneWidth, height: stripHeight, rx: endRadius, fill: tintColor }, segmentLayer);
+        // colour edge on the left, kept inside the round ends
+        if (stripHeight > 2 * endRadius) {
+          createSvgElement('rect', { x: laneLeftX, y: topY + endRadius, width: Math.min(1.4, laneWidth / 4), height: stripHeight - 2 * endRadius, fill: partColor }, segmentLayer);
         }
 
-        const mainPiece = pieces.find(piece => piece.isMainPiece);
-        if (!mainPiece) continue;
-        const fittedLabel = fitTextIntoLength(part.description, preferredLabelFontSize, mainPiece.bottomY - mainPiece.topY - 4);
+        const fittedLabel = fitTextIntoLength(part.description, preferredLabelFontSize, bottomY - topY - 4);
         if (!fittedLabel) continue;
         // Rotated -90°: text reads bottom-to-top, glyphs extend to the left of the baseline.
         const baselineX = laneLeftX + laneWidth / 2 + fittedLabel.fontSize * 0.36;
-        const labelStartY = mainPiece.bottomY - 2;
+        const labelStartY = bottomY - 2;
         addText(segmentLayer, fittedLabel.text, {
           transform: `translate(${baselineX.toFixed(2)},${labelStartY.toFixed(2)}) rotate(-90)`,
           'font-size': fittedLabel.fontSize.toFixed(2), fill: POSTER_COLORS.textPrimary,
         });
       }
+    }
+
+    // ----- departure dots of rebuild ribbons, on top of the strips -----
+    for (const dot of departureDots) {
+      createSvgElement('circle', {
+        cx: dot.x, cy: dot.y, r: laneWidth / 2, fill: mixWithBlack(POSTER_PART_GROUP_COLORS[dot.part.partGroup], DEPARTURE_DOT_SHADE),
+      }, segmentLayer);
     }
   }
 

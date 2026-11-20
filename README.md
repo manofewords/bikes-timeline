@@ -5,7 +5,7 @@ A single self-contained HTML page that shows the history of my bikes and how par
 ## What it shows
 
 - **One column per bike**, grouped by type (BMX, MTB, DH, gravel, commuter) and in chronological order within each group. Time runs upwards in years, with the newest dates at the top.
-- **One lane per part type** inside each bike's bar. Each bike type has its own set of lanes, so bar widths differ. Part strips are coloured by part group: chassis, wheels, brakes, cockpit, drivetrain and seat.
+- **One lane per part type** inside each bike's bar. Each bike type has its own set of lanes, so bar widths differ. Part strips have fully round ends and are coloured by part group: chassis, wheels, brakes, cockpit, drivetrain and seat.
 - **Built periods**: the outlined grey bar is drawn only while every lane of the bike's type is filled (dark border in the light theme, light border in the dark theme). See [Bike types, lanes and "built"](#bike-types-lanes-and-built).
 - **Part moves**: right-angled "L" ribbons connect a part that moved from one bike to another. A dotted line marks a part that went back on the same bike after a break. See [Ribbons](#ribbons).
 - **Interaction**: hover a part or a bike name for a tooltip and highlight, and click to pin it. Summary stats, a parts table and data warnings are shown below the chart.
@@ -51,9 +51,9 @@ A bike is "built" while every lane of its type is filled. Optional lanes: rear b
 
 Parts moving between bikes are connected by right-angled "L" ribbons: horizontal from the old strip, then up into the bottom of the new strip.
 
-- Parts leaving a bike on the same date get their own track each, 1px apart (`RIBBON_TRACK_GAP`), leaving one step earlier per track. A small gap is cut into the old strip right above the departure, with a stub up to the real end date.
+- Parts leaving a bike on the same date get their own track each, 1px apart (`RIBBON_TRACK_GAP`), leaving one step earlier per track. The old strip stays unbroken up to its real end date, and a dot in a darker shade of its colour marks where the ribbon leaves it.
 - A part leaving alone leaves flush with the top of its strip.
-- Ribbons stop a small gap (`CONNECTOR_GAP_SIZE`) below the new strip so its bottom edge marks the start date. A part being replaced in that lane is cut short below the incoming ribbon.
+- Ribbons stop a small gap (`CONNECTOR_GAP_SIZE`) below the new strip so its bottom edge marks the start date. A part being replaced in that lane keeps its real end date; the ribbon runs underneath it, so the lane has no gap.
 - A part returning to the same bike after a break gets a dotted line.
 
 ## Repository
