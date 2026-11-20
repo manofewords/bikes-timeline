@@ -9,7 +9,7 @@ A single self-contained HTML page that shows the history of my bikes and how par
 - **Built periods**: the outlined grey bar is drawn only while every lane of the bike's type is filled. Some lanes are optional: rear brake and lever on BMX, shock on MTB, and all brakes on a commuter.
 - **Part moves**: right-angled "L" ribbons connect a part that moved from one bike to another. A dotted line marks a part that went back on the same bike after a break.
 - **Interaction**: hover a part or a bike name for a tooltip and highlight, and click to pin it. Summary stats, a parts table and data warnings are shown below the chart.
-- **Poster**: "Print A2 poster" (or Ctrl/Cmd+P) prints an A2 landscape version. It has each part's details written along its strip and the built periods under each bike name.
+- **Poster**: "Print A2 poster" (or Ctrl/Cmd+P) prints an A2 landscape version. It has each part's description written along its strip and the built periods under each bike name.
 
 ## Data
 
@@ -19,7 +19,7 @@ The page comes with sample data embedded in a `<script id="bike-data">` tag. The
 {
   "bikes": [{ "id": "uuid", "type": "bmx | mtb | dh | gravel | commuter", "name": "Haro Backtrail X1" }],
   "parts": [{
-    "id": "uuid", "type": "frame", "details": "Haro Backtrail frame",
+    "id": "uuid", "type": "frame", "description": "Haro Backtrail frame",
     "usage": [{ "bikeId": "uuid", "dateFrom": "2008-11-15", "dateTo": "now" }]
   }]
 }

@@ -2,7 +2,7 @@ This project is about my bike timeline: a single self-contained HTML page (`bike
 
 ## Data (JSON)
 - `bikes: [{ id: uuid, type: "bmx" | "mtb" | "dh" | "gravel" | "commuter", name: string }]`
-- `parts: [{ id: uuid, type: string, details: string, usage: [{ bikeId: uuid, dateFrom: ISODate, dateTo: ISODate | "now" }] }]`
+- `parts: [{ id: uuid, type: string, description: string, usage: [{ bikeId: uuid, dateFrom: ISODate, dateTo: ISODate | "now" }] }]`
 - Parts with a `null` date in any usage are ignored and logged with `console.log`.
 - Ignored part types (skipped silently): front tire, rear tire, grips, seat clamp, headset, pedals.
 - Any part type that is neither a lane type nor ignored is logged with `console.error` (and listed above the parts table).
@@ -29,7 +29,7 @@ A bike is "built" while every lane of its type is filled. Optional: rear brake a
   - Ribbons stop a small gap (`CONNECTOR_GAP_SIZE`) below the new strip so its bottom edge marks the start date; a part being replaced in that lane is cut short below the incoming ribbon.
   - A part returning to the same bike after a break gets a dotted line.
 - Hover a part or bike name for a tooltip and highlight; click to pin.
-- "Print A2 poster" button: A2 landscape (594×420 mm), every part's details written vertically along its strip (no dates), built periods under each bike name.
+- "Print A2 poster" button: A2 landscape (594×420 mm), every part's description written vertically along its strip (no dates), built periods under each bike name.
 
 ## Working style
 Ask if something is unclear and don't make non-obvious assumptions. Use descriptive variable names. Render and check the result before handing it back.
