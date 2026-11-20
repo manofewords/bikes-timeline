@@ -10,6 +10,7 @@
     --surface-page: #f3f2ef;
     --surface-card: #fcfcfb;
     --built-bar-fill: #ecebe7;
+    --built-bar-border: #2f2e2c;
     --gridline: #e4e3df;
     --axis-line: #c9c8c2;
     --text-primary: #0b0b0b;
@@ -28,6 +29,7 @@
       --surface-page: #111110;
       --surface-card: #1a1a19;
       --built-bar-fill: #2a2a28;
+      --built-bar-border: #d6d5ce;
       --gridline: #2c2c2a;
       --axis-line: #4a4a46;
       --text-primary: #f0efec;
@@ -46,6 +48,7 @@
     --surface-page: #111110;
     --surface-card: #1a1a19;
     --built-bar-fill: #2a2a28;
+    --built-bar-border: #d6d5ce;
     --gridline: #2c2c2a;
     --axis-line: #4a4a46;
     --text-primary: #f0efec;
@@ -80,7 +83,6 @@
   .button { font: inherit; color: var(--text-primary); background: var(--surface-card); border: 1px solid var(--axis-line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
   .button:hover { border-color: var(--text-muted); }
   #json-file-input { display: none; }
-  .status-legend-item { margin-right: 12px; }
 
   .part-group-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; }
   .color-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
@@ -94,11 +96,10 @@
   .year-grid text { fill: var(--text-muted); font-variant-numeric: tabular-nums; }
   .today-line { stroke: var(--text-muted); stroke-dasharray: 3 3; }
   .today-label { fill: var(--text-muted); font-size: 10px; }
-  .built-bar { fill: var(--built-bar-fill); }
+  .built-bar { fill: var(--built-bar-fill); stroke: var(--built-bar-border); stroke-width: 1.25; }
   .bike-type-label { fill: var(--text-primary); font-size: 12px; font-weight: 650; letter-spacing: 0.06em; }
   .bike-type-rule { stroke: var(--axis-line); }
   .bike-name { fill: var(--text-primary); font-size: 12px; font-weight: 600; }
-  .bike-status-label { fill: var(--text-secondary); font-size: 11px; }
   .bike-header { cursor: default; }
   .bike-header:hover .bike-name { text-decoration: underline; }
   .part-segment { cursor: pointer; transition: opacity .12s; }
@@ -143,7 +144,7 @@
 <div class="viz-root">
   <header>
     <h1>Bike timeline</h1>
-    <p>Each column is a bike, with the newest dates at the top. The grey bar shows when the bike was <em>built</em>: every lane of its bike type filled (optional: rear brake and lever on BMX, shock on MTB). Each coloured strip is a part in a fixed lane, and ribbons connect a part that moved from one bike to another. Hover a part or a bike name to trace it, and click to pin the highlight.</p>
+    <p>Each column is a bike, with the newest dates at the top. The outlined grey bar shows when the bike was <em>built</em>: every lane of its bike type filled (optional: rear brake and lever on BMX, shock on MTB). Each coloured strip is a part in a fixed lane, and ribbons connect a part that moved from one bike to another. Hover a part or a bike name to trace it, and click to pin the highlight.</p>
   </header>
 
   <div class="summary-stats" id="summary-stats"></div>
@@ -153,7 +154,6 @@
     <button class="button" id="load-json-button">Load JSON…</button><input type="file" id="json-file-input" accept="application/json,.json">
     <button class="button" id="copy-json-button">Copy JSON</button>
     <button class="button" id="print-poster-button">Print A2 poster</button>
-    <span id="status-legend"></span>
   </div>
 
   <div class="part-group-legend" id="part-group-legend"></div>
@@ -217,16 +217,18 @@
     'frame', 'fork', 'stem', 'handlebars', 'front rim', 'front hub', 'rear rim', 'rear hub',
     'sprocket', 'cranks', 'rear brake', 'rear brake lever',
   ];
-  const DH_LANES = [...BMX_LANES, 'shock', 'front brake', 'front brake lever', 'front disc', 'rear disc'];
-  const MTB_LANES = [...DH_LANES, 'seatpost', 'seat', 'gears'];
+  const COMMUTER_LANES = [...BMX_LANES, 'front brake', 'front brake lever', 'gears'];
+  const DH_LANES = [...BMX_LANES, 'shock', 'front brake', 'front brake lever', 'front disc', 'rear disc', 'gears'];
+  const MTB_LANES = [...DH_LANES, 'seatpost', 'seat'];
   const GRAVEL_LANES = MTB_LANES.filter(partType => partType !== 'shock');
 
   // Listed in the order the bike type groups appear along the x axis.
   const BIKE_TYPES = [
     { type: 'bmx',    label: 'BMX',    lanePartTypes: BMX_LANES,    optionalPartTypes: ['rear brake', 'rear brake lever'] }, // brakeless BMX allowed
-    { type: 'mtb',    label: 'MTB',    lanePartTypes: MTB_LANES,    optionalPartTypes: ['shock'] },
+    { type: 'mtb',    label: 'MTB',    lanePartTypes: MTB_LANES,    optionalPartTypes: ['shock'] }, // hardtails allowed
     { type: 'dh',     label: 'DH',     lanePartTypes: DH_LANES,     optionalPartTypes: [] },
     { type: 'gravel', label: 'GRAVEL', lanePartTypes: GRAVEL_LANES, optionalPartTypes: [] },
+    { type: 'commuter', label: 'COMMUTER', lanePartTypes: COMMUTER_LANES, optionalPartTypes: ['front brake', 'front brake lever', 'rear brake', 'rear brake lever'] }
   ];
   const BIKE_TYPES_BY_KEY = Object.fromEntries(BIKE_TYPES.map(bikeType => [bikeType.type, bikeType]));
   const requiredPartTypesFor = bikeType =>
@@ -237,13 +239,6 @@
   const IGNORED_PART_TYPES = new Set(['front tire', 'rear tire', 'grips', 'seat clamp', 'headset', 'pedals']);
   // Anything that is neither a lane type nor ignored is logged as an error.
   const KNOWN_PART_TYPES = new Set([...LANE_DEFINITIONS.map(lane => lane.partType), ...IGNORED_PART_TYPES]);
-
-  const BIKE_STATUS_LABELS = {
-    active:     'active',
-    dismantled: 'dismantled',
-    sold:       'sold',
-    neverBuilt: 'never built',
-  };
 
   // =====================================================================
   // Layout (all values in pixels)
@@ -461,20 +456,6 @@
     return element;
   }
 
-  // Status icon: filled = active, half-filled = dismantled, ring = sold, dashed ring = never built
-  function statusIconSvgMarkup(status, centerX, centerY, radius = 3.6) {
-    const dashes = status === 'neverBuilt' ? ' stroke-dasharray="1.6 1.4"' : '';
-    const ring = `<circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="currentColor" stroke-width="1.2"${dashes}/>`;
-    if (status === 'active') return `<circle cx="${centerX}" cy="${centerY}" r="${radius + 0.6}" fill="currentColor"/>`;
-    if (status === 'dismantled') {
-      const leftHalf = `<path d="M${centerX},${centerY - radius} A${radius},${radius} 0 0 0 ${centerX},${centerY + radius} Z" fill="currentColor"/>`;
-      return ring + leftHalf;
-    }
-    return ring;
-  }
-  const statusIconInlineHtml = status =>
-    `<svg width="10" height="10" viewBox="0 0 10 10" style="vertical-align:-1px;color:var(--text-secondary)">${statusIconSvgMarkup(status, 5, 5)}</svg>`;
-
   function wrapTextIntoLines(text, maxCharactersPerLine, maxLines) {
     const lines = [];
     let currentLine = '';
@@ -502,7 +483,7 @@
   let hoveredHighlightKey = null;
 
   // =====================================================================
-  // Model: derive built periods, statuses, lanes and ordering from raw data
+  // Model: derive built periods, lanes and ordering from raw data
   // =====================================================================
 
   function buildTimelineModel(data) {
@@ -564,7 +545,6 @@
       }
       part.mountings = mergedMountings;
       if (part.mountings.length === 0) continue;
-      part.isSold = part.mountings.length > 0 && part.mountings.every(mounting => mounting.endTimestamp < TODAY_TIMESTAMP);
       part.mountings.forEach(mounting => bikesById[mounting.bikeId].mountings.push(mounting));
     }
     const shownParts = parts.filter(part => part.mountings.length > 0);
@@ -573,7 +553,6 @@
       assignLanes(bike, dataWarnings);
       bike.builtPeriods = computeBuiltPeriods(bike);
       bike.partsEverMounted = [...new Set(bike.mountings.map(mounting => mounting.part))];
-      bike.status = computeBikeStatus(bike);
       bike.sortTimestamp = bike.builtPeriods.length
         ? bike.builtPeriods[0].startTimestamp
         : (bike.mountings.length ? Math.min(...bike.mountings.map(mounting => mounting.startTimestamp)) : TODAY_TIMESTAMP);
@@ -642,13 +621,6 @@
       else builtPeriods.push({ startTimestamp: intervalStart, endTimestamp: intervalEnd });
     }
     return builtPeriods;
-  }
-
-  function computeBikeStatus(bike) {
-    if (bike.builtPeriods.length === 0) return 'neverBuilt';
-    const latestBuiltPeriod = bike.builtPeriods[bike.builtPeriods.length - 1];
-    if (latestBuiltPeriod.endTimestamp === TODAY_TIMESTAMP) return 'active';
-    return bike.partsEverMounted.every(part => part.isSold) ? 'sold' : 'dismantled';
   }
 
   // =====================================================================
@@ -733,11 +705,6 @@
           nameText.textContent = line;
         });
 
-        const statusLineY = 46 + nameLines.length * 14 + 2;
-        const statusIcon = createSvgElement('g', { style: 'color:var(--text-secondary)' }, bikeHeader);
-        statusIcon.innerHTML = statusIconSvgMarkup(bike.status, bike.barLeftX + 4, statusLineY - 4);
-        const statusText = createSvgElement('text', { class: 'bike-status-label', x: bike.barLeftX + 12, y: statusLineY }, bikeHeader);
-        statusText.textContent = BIKE_STATUS_LABELS[bike.status];
 
         bikeHeader.addEventListener('pointerenter', event => showBikeTooltip(bike, event));
         bikeHeader.addEventListener('pointermove', positionTooltip);
@@ -855,12 +822,10 @@
         <td>${formatMonthYear(mounting.startTimestamp)} – ${formatMonthYear(mounting.endTimestamp)}</td>
         <td>${formatDuration(mounting.endTimestamp - mounting.startTimestamp)}</td>
       </tr>`).join('');
-    const latestMounting = part.mountings[part.mountings.length - 1];
-    const partStatus = part.isSold ? 'Sold' : `On ${bikeName(latestMounting.bikeId)}`;
 
     tooltip.innerHTML = `
       <h4><span class="color-swatch" style="background:var(--part-group-${part.partGroup})"></span>${escapeHtml(part.details)}</h4>
-      <div class="tooltip-meta">${escapeHtml(part.type)} · ${partStatus}</div>
+      <div class="tooltip-meta">${escapeHtml(part.type)}</div>
       <table>${mountingRows}</table>`;
     tooltip.style.display = 'block';
     positionTooltip(event);
@@ -890,7 +855,7 @@
 
     tooltip.innerHTML = `
       <h4>${escapeHtml(bike.name)}</h4>
-      <div class="tooltip-meta">${escapeHtml(bike.type.toUpperCase())} · ${statusIconInlineHtml(bike.status)} ${BIKE_STATUS_LABELS[bike.status]} · ${bike.partsEverMounted.length} parts over time</div>
+      <div class="tooltip-meta">${escapeHtml(bike.type.toUpperCase())} · ${bike.partsEverMounted.length} parts over time</div>
       <table>${builtPeriodRows || '<tr><td>never had the full minimum set</td></tr>'}</table>
       ${bikesPartsCameFrom.size ? `<div class="tooltip-meta" style="margin:6px 0 0">Parts from: ${listNames(bikesPartsCameFrom)}</div>` : ''}
       ${bikesPartsWentTo.size ? `<div class="tooltip-meta" style="margin:2px 0 0">Parts passed to: ${listNames(bikesPartsWentTo)}</div>` : ''}`;
@@ -945,7 +910,7 @@
   const POSTER_PRINTABLE_HEIGHT_MM = 399;  // 420mm minus margins, 1mm spare so it never spills onto a second page
   const POSTER_FONT_FAMILY = 'Helvetica, Arial, sans-serif';
   const POSTER_COLORS = {
-    page: '#ffffff', builtBar: '#ecebe7', gridline: '#e4e3df', axisLine: '#c9c8c2',
+    page: '#ffffff', builtBar: '#ecebe7', builtBarBorder: '#2f2e2c', gridline: '#e4e3df', axisLine: '#c9c8c2',
     textPrimary: '#0b0b0b', textSecondary: '#52514e', textMuted: '#7a7974',
   };
   // Light-mode part group colours (same as the screen palette)
@@ -1064,7 +1029,7 @@
       group.posterRightX = currentX;
     });
 
-    // ----- bike headers: name, status, built periods -----
+    // ----- bike headers: name, built periods -----
     const formatBuiltPeriod = period =>
       `${formatMonthYear(period.startTimestamp)}–${formatMonthYear(period.endTimestamp)} · ${formatDuration(period.endTimestamp - period.startTimestamp)}`;
     const headerLinesByBikeId = {};
@@ -1077,7 +1042,7 @@
       }
     }
     const tallestHeaderContent = Math.max(...Object.values(headerLinesByBikeId).map(lines =>
-      lines.nameLines.length * POSTER_BIKE_NAME_LINE_HEIGHT + (1 + lines.builtPeriodLines.length) * POSTER_BIKE_DETAIL_LINE_HEIGHT));
+      lines.nameLines.length * POSTER_BIKE_NAME_LINE_HEIGHT + lines.builtPeriodLines.length * POSTER_BIKE_DETAIL_LINE_HEIGHT));
     const headerTopY = POSTER_TITLE_BAND_HEIGHT;
     const plotTopY = headerTopY + 30 + tallestHeaderContent + 10;
     const plotBottomY = posterHeight - 16;
@@ -1094,10 +1059,7 @@
           addText(headerLayer, nameLine, { x: barLeftX, y: lineY, 'font-size': POSTER_BIKE_NAME_FONT_SIZE, 'font-weight': 700, fill: POSTER_COLORS.textPrimary });
           lineY += POSTER_BIKE_NAME_LINE_HEIGHT;
         }
-        lineY -= 1;
-        const statusIcon = createSvgElement('g', { style: `color:${POSTER_COLORS.textSecondary}` }, headerLayer);
-        statusIcon.innerHTML = statusIconSvgMarkup(bike.status, barLeftX + 4, lineY - 3.5);
-        addText(headerLayer, BIKE_STATUS_LABELS[bike.status], { x: barLeftX + 12, y: lineY, 'font-size': POSTER_BIKE_DETAIL_FONT_SIZE, fill: POSTER_COLORS.textSecondary });
+        lineY -= POSTER_BIKE_DETAIL_LINE_HEIGHT + 1; // first built period sits right under the name
         for (const builtPeriodLine of builtPeriodLines) {
           lineY += POSTER_BIKE_DETAIL_LINE_HEIGHT;
           addText(headerLayer, builtPeriodLine, { x: barLeftX, y: lineY, 'font-size': POSTER_BIKE_DETAIL_FONT_SIZE, fill: POSTER_COLORS.textSecondary, 'font-variant-numeric': 'tabular-nums' });
@@ -1130,7 +1092,7 @@
       if (barLeftX == null) continue;
       for (const period of bike.builtPeriods) {
         const topY = timestampToY(period.endTimestamp);
-        createSvgElement('rect', { x: barLeftX, y: topY, width: barWidthOf(bike.id), height: Math.max(2, timestampToY(period.startTimestamp) - topY), rx: 3, fill: POSTER_COLORS.builtBar }, barLayer);
+        createSvgElement('rect', { x: barLeftX, y: topY, width: barWidthOf(bike.id), height: Math.max(2, timestampToY(period.startTimestamp) - topY), rx: 3, fill: POSTER_COLORS.builtBar, stroke: POSTER_COLORS.builtBarBorder, 'stroke-width': 1 }, barLayer);
       }
     }
 
@@ -1197,45 +1159,32 @@
   }
 
   function renderPosterTitleBand(svg, posterWidth, addText) {
-    const countBikesWithStatus = status => timelineModel.bikes.filter(bike => bike.status === status).length;
     addText(svg, 'Bike timeline', { x: 0, y: 26, 'font-size': 26, 'font-weight': 700, fill: POSTER_COLORS.textPrimary });
     addText(svg,
-      `As of ${formatLongDate(TODAY_TIMESTAMP)} · ${timelineModel.bikes.length} bikes, ${countBikesWithStatus('active')} active · ${timelineModel.parts.length} parts`,
+      `As of ${formatLongDate(TODAY_TIMESTAMP)} · ${timelineModel.bikes.length} bikes · ${timelineModel.parts.length} parts`,
       { x: 0, y: 46, 'font-size': 11, fill: POSTER_COLORS.textSecondary });
     addText(svg,
-      `Grey bar: bike built (${BUILT_BIKE_DESCRIPTION}). Ribbon: part moved to another bike. Dotted line: part refitted to the same bike after a break.`,
+      `Outlined grey bar: bike built (${BUILT_BIKE_DESCRIPTION}). Ribbon: part moved to another bike. Dotted line: part refitted to the same bike after a break.`,
       { x: 0, y: 60, 'font-size': 10, fill: POSTER_COLORS.textMuted });
 
-    // Legend, right-aligned: part groups, then bike statuses
+    // Legend, right-aligned: part groups
     const legendFontSize = 11;
-    const legendItems = [
-      ...Object.entries(PART_GROUPS).map(([groupKey, group]) => ({ kind: 'group', groupKey, label: group.label, description: group.partTypesDescription })),
-      ...Object.entries(BIKE_STATUS_LABELS).map(([status, label]) => ({ kind: 'status', status, label })),
-    ];
+    const legendRowY = 24;
+    const legendItems = Object.entries(PART_GROUPS)
+      .map(([groupKey, group]) => ({ groupKey, label: group.label, description: group.partTypesDescription }));
     const itemWidth = item => 14 + measureTextWidth(item.label, legendFontSize, 700)
-      + (item.description ? 4 + measureTextWidth(item.description, legendFontSize) : 0) + 16;
-    const rowY = [24, 44];
-    const firstRowItems = legendItems.filter(item => item.kind === 'group');
-    const secondRowItems = legendItems.filter(item => item.kind === 'status');
-    [firstRowItems, secondRowItems].forEach((rowItems, rowIndex) => {
-      let itemX = posterWidth - rowItems.reduce((total, item) => total + itemWidth(item), 0) + 16;
-      for (const item of rowItems) {
-        const legendItem = createSvgElement('g', { style: `color:${POSTER_COLORS.textSecondary}` }, svg);
-        if (item.kind === 'group') {
-          createSvgElement('rect', { x: itemX, y: rowY[rowIndex] - 9, width: 10, height: 10, rx: 2, fill: POSTER_PART_GROUP_COLORS[item.groupKey] }, legendItem);
-        } else {
-          legendItem.innerHTML = statusIconSvgMarkup(item.status, itemX + 5, rowY[rowIndex] - 4);
-        }
-        const labelElement = addText(legendItem, '', { x: itemX + 14, y: rowY[rowIndex], 'font-size': legendFontSize, fill: POSTER_COLORS.textSecondary });
-        const boldLabel = createSvgElement('tspan', { 'font-weight': 700, fill: POSTER_COLORS.textPrimary }, labelElement);
-        boldLabel.textContent = item.label;
-        if (item.description) {
-          const description = createSvgElement('tspan', { dx: 4 }, labelElement);
-          description.textContent = item.description;
-        }
-        itemX += itemWidth(item);
-      }
-    });
+      + 4 + measureTextWidth(item.description, legendFontSize) + 16;
+    let itemX = posterWidth - legendItems.reduce((total, item) => total + itemWidth(item), 0) + 16;
+    for (const item of legendItems) {
+      const legendItem = createSvgElement('g', {}, svg);
+      createSvgElement('rect', { x: itemX, y: legendRowY - 9, width: 10, height: 10, rx: 2, fill: POSTER_PART_GROUP_COLORS[item.groupKey] }, legendItem);
+      const labelElement = addText(legendItem, '', { x: itemX + 14, y: legendRowY, 'font-size': legendFontSize, fill: POSTER_COLORS.textSecondary });
+      const boldLabel = createSvgElement('tspan', { 'font-weight': 700, fill: POSTER_COLORS.textPrimary }, labelElement);
+      boldLabel.textContent = item.label;
+      const description = createSvgElement('tspan', { dx: 4 }, labelElement);
+      description.textContent = item.description;
+      itemX += itemWidth(item);
+    }
   }
 
   // =====================================================================
@@ -1243,15 +1192,12 @@
   // =====================================================================
 
   function renderSummaryAndLegends() {
-    const countBikesWithStatus = status => timelineModel.bikes.filter(bike => bike.status === status).length;
     const partsMovedBetweenBikes = timelineModel.parts
       .filter(part => new Set(part.mountings.map(mounting => mounting.bikeId)).size > 1).length;
 
     const summaryStats = [
       { value: timelineModel.bikes.length, label: 'bikes' },
-      { value: countBikesWithStatus('active'), label: 'active bikes' },
       { value: timelineModel.parts.length, label: 'parts tracked' },
-      { value: timelineModel.parts.filter(part => !part.isSold).length, label: 'parts in use' },
       { value: partsMovedBetweenBikes, label: 'parts moved between bikes' },
     ];
     document.getElementById('summary-stats').innerHTML = summaryStats
@@ -1264,9 +1210,6 @@
         </span>`)
       .join('');
 
-    document.getElementById('status-legend').innerHTML = Object.entries(BIKE_STATUS_LABELS)
-      .map(([status, label]) => `<span class="status-legend-item">${statusIconInlineHtml(status)} ${label}</span>`)
-      .join('');
 
     renderPartsTable();
 
@@ -1285,11 +1228,11 @@
       const usageLines = part.mountings
         .map(mounting => `${escapeHtml(timelineModel.bikesById[mounting.bikeId].name)}: ${formatIsoDate(mounting.startTimestamp)} → ${formatIsoDate(mounting.endTimestamp)}`)
         .join('<br>');
-      return `<tr><td>${escapeHtml(part.type)}</td><td>${escapeHtml(part.details)}</td><td class="usage-cell">${usageLines}</td><td>${part.isSold ? 'sold' : 'in use'}</td></tr>`;
+      return `<tr><td>${escapeHtml(part.type)}</td><td>${escapeHtml(part.details)}</td><td class="usage-cell">${usageLines}</td></tr>`;
     }).join('');
 
     document.getElementById('parts-table').innerHTML =
-      `<thead><tr><th>Type</th><th>Part</th><th>Usage</th><th>Status</th></tr></thead><tbody>${bodyRows}</tbody>`;
+      `<thead><tr><th>Type</th><th>Part</th><th>Usage</th></tr></thead><tbody>${bodyRows}</tbody>`;
   }
 
   // =====================================================================
