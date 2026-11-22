@@ -740,6 +740,9 @@
     return { bikes, bikesById, parts: shownParts, bikeTypeGroups, dataWarnings, earliestYear };
   }
 
+  // The bike's name, or its type and number (e.g. "MTB 2") when it has none.
+  const displayNameOf = bike => bike.name || `${BIKE_TYPES_BY_KEY[bike.type].label} ${bike.numberWithinType}`;
+
   // Every part type has exactly one lane. Two parts of the same type on one bike at the
   // same time are a data problem: they're warned about and drawn on top of each other.
   function assignLanes(bike, dataWarnings) {
@@ -878,9 +881,8 @@
         // transparent rect = larger hover target
         createSvgElement('rect', { x: bike.barLeftX - 4, y: 30, width: bike.barWidth + 8, height: HEADER_HEIGHT - 26, fill: 'transparent' }, bikeHeader);
 
-        const displayName = bike.name || `${group.label} ${bike.numberWithinType}`;
         const maxCharactersPerLine = Math.floor(bike.barWidth / BIKE_NAME_AVERAGE_CHARACTER_WIDTH);
-        const nameLines = wrapTextIntoLines(displayName, maxCharactersPerLine, BIKE_NAME_MAX_LINES);
+        const nameLines = wrapTextIntoLines(displayNameOf(bike), maxCharactersPerLine, BIKE_NAME_MAX_LINES);
         nameLines.forEach((line, lineIndex) => {
           const nameText = createSvgElement('text', { class: 'bike-name', x: bike.barLeftX, y: 46 + lineIndex * 14 }, bikeHeader);
           nameText.textContent = line;
@@ -1219,7 +1221,7 @@
         const columnWidth = barWidthOf(bike.id)
           + (isLastBike ? (group === placedGroups.at(-1) ? 0 : POSTER_GAP_BETWEEN_BIKE_TYPES) : POSTER_GAP_BETWEEN_BIKES) - 6;
         headerLinesByBikeId[bike.id] = {
-          nameLines: wrapTextByWidth(bike.name || `${group.label} ${bike.numberWithinType}`, POSTER_BIKE_NAME_FONT_SIZE, 700, columnWidth, 2),
+          nameLines: wrapTextByWidth(displayNameOf(bike), POSTER_BIKE_NAME_FONT_SIZE, 700, columnWidth, 2),
           builtPeriodLines: bike.builtPeriods.flatMap(period => builtPeriodLinesOf(period, columnWidth)),
         };
       });
