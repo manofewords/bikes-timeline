@@ -16,12 +16,12 @@
     --text-primary: #0b0b0b;
     --text-secondary: #52514e;
     --text-muted: #7a7974;
-    --part-group-chassis: #2a78d6;
-    --part-group-wheels: #eb6834;
-    --part-group-brakes: #1baf7a;
-    --part-group-cockpit: #eda100;
-    --part-group-drivetrain: #e87ba4;
-    --part-group-seat: #008300;
+    --part-group-chassis: #446cb4;
+    --part-group-wheels: #c38b27;
+    --part-group-brakes: #268d81;
+    --part-group-cockpit: #8061b0;
+    --part-group-drivetrain: #bb566e;
+    --part-group-seat: #729343;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .viz-root {
@@ -35,12 +35,12 @@
       --text-primary: #f0efec;
       --text-secondary: #c3c2b7;
       --text-muted: #8f8e86;
-      --part-group-chassis: #3987e5;
-      --part-group-wheels: #d95926;
-      --part-group-brakes: #199e70;
-      --part-group-cockpit: #c98500;
-      --part-group-drivetrain: #d55181;
-      --part-group-seat: #0ca30c;
+      --part-group-chassis: #5e86ce;
+      --part-group-wheels: #dda440;
+      --part-group-brakes: #3fa79a;
+      --part-group-cockpit: #997bca;
+      --part-group-drivetrain: #d57087;
+      --part-group-seat: #8cac5c;
     }
   }
   :root[data-theme="dark"] .viz-root {
@@ -54,12 +54,12 @@
     --text-primary: #f0efec;
     --text-secondary: #c3c2b7;
     --text-muted: #8f8e86;
-    --part-group-chassis: #3987e5;
-    --part-group-wheels: #d95926;
-    --part-group-brakes: #199e70;
-    --part-group-cockpit: #c98500;
-    --part-group-drivetrain: #d55181;
-    --part-group-seat: #0ca30c;
+    --part-group-chassis: #5e86ce;
+    --part-group-wheels: #dda440;
+    --part-group-brakes: #3fa79a;
+    --part-group-cockpit: #997bca;
+    --part-group-drivetrain: #d57087;
+    --part-group-seat: #8cac5c;
   }
 
   * { box-sizing: border-box; }
@@ -877,7 +877,7 @@
   };
   // Light-mode part group colours (same as the screen palette)
   const POSTER_PART_GROUP_COLORS = {
-    chassis: '#2a78d6', wheels: '#eb6834', brakes: '#1baf7a', cockpit: '#eda100', drivetrain: '#e87ba4', seat: '#008300',
+    chassis: '#446cb4', wheels: '#c38b27', brakes: '#268d81', cockpit: '#8061b0', drivetrain: '#bb566e', seat: '#729343',
   };
   const POSTER_LABEL_TINT_STRENGTH = 0.3; // part strip fill = this much group colour mixed into white
   const POSTER_TITLE_BAND_HEIGHT = 66;
