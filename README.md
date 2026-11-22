@@ -1,6 +1,16 @@
 # Bike timeline
 
-A single self-contained HTML page that shows the history of my bikes and how parts moved between them. Open `index.html` in a browser; there is no build step and nothing to install.
+An HTML page that shows the history of my bikes and how parts moved between them. Open `index.html` in a browser, straight from disk; there is no build step, no server and nothing to install.
+
+## Files
+
+- `index.html`: the page itself, with the embedded sample data.
+- `styles.css`: all styles, including the dark theme and the print styles for the poster.
+- `utils.js`: small helpers with no state of their own: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatDuration`, …), `escapeHtml`, text wrapping, `displayNameOf` and `mixWithWhite`.
+- `timeline.js`: everything else: configuration, validation, the model, the screen chart, the A2 poster and the controls.
+- `test.html` and `test.js`: unit tests for `utils.js`. Open `test.html` to run them; it lists every test as passed or failed, with a summary line at the top.
+
+The scripts are loaded with plain `<script>` tags (no modules, no `fetch`), so the page works when opened from `file://`. `utils.js` is loaded first and its helpers are global; `timeline.js` keeps its own code inside a function.
 
 ## What it shows
 
@@ -54,7 +64,7 @@ Each part type is **mandatory**, **optional** or **ignored** per bike type. Mand
 
 The gear button next to "Print A2 poster" opens the build settings: one table per bike type with one row per part type, grouped and coloured by part group like the legend (frame, fork, stem, handlebars, front rim, front hub, rear rim, rear hub, sprocket, cranks, rear brake, rear brake lever, front brake, front brake lever, gears, shock, front disc, rear disc, seat post, seat, pedals, seat clamp, headset, front tire, rear tire, grips, front spokes, rear spokes, bottom bracket). Closing the dialog applies the settings to the timeline. They are not saved: reloading the page goes back to the defaults.
 
-Default lanes per bike type (the `*_LANES` constants in `index.html`):
+Default lanes per bike type (the `*_LANES` constants in `timeline.js`):
 
 - **bmx**: frame, fork, stem, handlebars, front rim, front hub, rear rim, rear hub, sprocket, cranks, rear brake, rear brake lever
 - **dh**: bmx + shock, front brake, front brake lever, front disc, rear disc, gears
@@ -76,4 +86,4 @@ Parts moving between bikes are connected by right-angled "L" ribbons: horizontal
 
 ## Repository
 
-`index.html` is the current version of the page. Each older commit of it is one earlier version, and the oldest commit is the first version. Instructions for AI agents working on this project are in `AGENTS.md`.
+`index.html` (with `styles.css`, `utils.js` and `timeline.js`) is the current version of the page. Each older commit is one earlier version, and the oldest commit is the first version. Up to the split into separate files, the page was a single self-contained `index.html`. Instructions for AI agents working on this project are in `AGENTS.md`.
