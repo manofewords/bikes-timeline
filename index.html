@@ -802,19 +802,16 @@
     const svgHeight = timestampToY(timelineStartTimestamp) + BOTTOM_PADDING;
 
     // Horizontal position of every bike bar
-    let currentX = YEAR_AXIS_WIDTH + 16;
-    timelineModel.bikeTypeGroups.forEach((group, groupIndex) => {
-      if (groupIndex > 0) currentX += GAP_BETWEEN_BIKE_TYPES;
-      group.leftX = currentX;
-      group.bikes.forEach((bike, bikeIndex) => {
-        if (bikeIndex > 0) currentX += GAP_BETWEEN_BIKES;
-        bike.barLeftX = currentX;
-        bike.barWidth = screenLaneLayoutByBikeType[bike.type].barWidth;
-        currentX += bike.barWidth;
-      });
-      group.rightX = currentX;
-    });
-    const svgWidth = currentX + 24;
+    const barWidthOf = bike => screenLaneLayoutByBikeType[bike.type].barWidth;
+    const columns = layoutBikeColumns(YEAR_AXIS_WIDTH + 16, GAP_BETWEEN_BIKES, GAP_BETWEEN_BIKE_TYPES, barWidthOf);
+    for (const group of timelineModel.bikeTypeGroups) {
+      Object.assign(group, columns.xRangeByGroup.get(group));
+      for (const bike of group.bikes) {
+        bike.barLeftX = columns.barLeftXByBikeId[bike.id];
+        bike.barWidth = barWidthOf(bike);
+      }
+    }
+    const svgWidth = columns.rightX + 24;
 
     const svg = createSvgElement('svg', {
       width: svgWidth, height: svgHeight, viewBox: `0 0 ${svgWidth} ${svgHeight}`,
@@ -830,6 +827,25 @@
 
     svg.addEventListener('click', event => { if (event.target === svg) togglePinnedHighlight(null); });
     applyHighlight();
+  }
+
+  // Places the bike bars left to right, group by group, with a gap between bikes and a wider one
+  // between bike types. Returns the left x of every bar, the x range of every group and the right end.
+  function layoutBikeColumns(startX, gapBetweenBikes, gapBetweenBikeTypes, barWidthOf) {
+    const barLeftXByBikeId = {};
+    const xRangeByGroup = new Map();
+    let currentX = startX;
+    timelineModel.bikeTypeGroups.forEach((group, groupIndex) => {
+      if (groupIndex > 0) currentX += gapBetweenBikeTypes;
+      const leftX = currentX;
+      group.bikes.forEach((bike, bikeIndex) => {
+        if (bikeIndex > 0) currentX += gapBetweenBikes;
+        barLeftXByBikeId[bike.id] = currentX;
+        currentX += barWidthOf(bike);
+      });
+      xRangeByGroup.set(group, { leftX, rightX: currentX });
+    });
+    return { barLeftXByBikeId, xRangeByGroup, rightX: currentX };
   }
 
   function renderYearGrid(svg, svgWidth, timestampToY) {
@@ -1184,18 +1200,8 @@
     const barWidthOf = bikeId => posterLaneLayoutByBikeType[timelineModel.bikesById[bikeId].type].barWidth;
     const laneOffsetX = (bikeId, laneIndex) => posterLaneLayoutByBikeType[timelineModel.bikesById[bikeId].type].laneOffsetsX[laneIndex];
 
-    const barLeftXByBikeId = {};
-    let currentX = POSTER_YEAR_AXIS_WIDTH + 8;
-    placedGroups.forEach((group, groupIndex) => {
-      if (groupIndex > 0) currentX += POSTER_GAP_BETWEEN_BIKE_TYPES;
-      group.posterLeftX = currentX;
-      group.bikes.forEach((bike, bikeIndex) => {
-        if (bikeIndex > 0) currentX += POSTER_GAP_BETWEEN_BIKES;
-        barLeftXByBikeId[bike.id] = currentX;
-        currentX += barWidthOf(bike.id);
-      });
-      group.posterRightX = currentX;
-    });
+    const { barLeftXByBikeId, xRangeByGroup } = layoutBikeColumns(
+      POSTER_YEAR_AXIS_WIDTH + 8, POSTER_GAP_BETWEEN_BIKES, POSTER_GAP_BETWEEN_BIKE_TYPES, bike => barWidthOf(bike.id));
 
     // ----- bike headers: name, built periods -----
     // A built period is one line ("03.2002–06.2007 · 5.3 y") when it fits the column (bar plus the
@@ -1226,8 +1232,9 @@
 
     const headerLayer = createSvgElement('g', {}, svg);
     for (const group of placedGroups) {
-      addText(headerLayer, group.label, { x: group.posterLeftX, y: headerTopY + 12, 'font-size': 13, 'font-weight': 700, 'letter-spacing': '0.06em', fill: POSTER_COLORS.textPrimary });
-      createSvgElement('line', { x1: group.posterLeftX, x2: group.posterRightX, y1: headerTopY + 19, y2: headerTopY + 19, stroke: POSTER_COLORS.axisLine }, headerLayer);
+      const { leftX: groupLeftX, rightX: groupRightX } = xRangeByGroup.get(group);
+      addText(headerLayer, group.label, { x: groupLeftX, y: headerTopY + 12, 'font-size': 13, 'font-weight': 700, 'letter-spacing': '0.06em', fill: POSTER_COLORS.textPrimary });
+      createSvgElement('line', { x1: groupLeftX, x2: groupRightX, y1: headerTopY + 19, y2: headerTopY + 19, stroke: POSTER_COLORS.axisLine }, headerLayer);
       for (const bike of group.bikes) {
         const barLeftX = barLeftXByBikeId[bike.id];
         const { nameLines, builtPeriodLines } = headerLinesByBikeId[bike.id];
