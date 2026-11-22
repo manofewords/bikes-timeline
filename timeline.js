@@ -260,8 +260,9 @@
   const REQUIRED_USAGE_FIELDS = ['bikeId', 'dateFrom', 'dateTo'];
 
   // Returns every error found, and the bikes and parts that can be processed: those with all
-  // required fields and a known type. Everything else (duplicate ids, overlapping dates) is
-  // reported but still processed.
+  // required fields and a known type. Everything else (duplicate ids, overlapping dates, two
+  // parts of one type on a bike at once) is reported but still processed. A usage on an
+  // unknown bike is reported and left out later, in buildTimelineModel().
   // A usage date may be null (a date still to be found out): the part is then skipped later
   // without an error, see buildTimelineModel().
   function validateData(data) {
@@ -354,6 +355,54 @@
       }
     }
 
+    // Usages on a bike that isn't in the data (or was left out above), and two parts of the same
+    // type on one bike at the same time: each part type has one lane, so they would be drawn on
+    // top of each other. Only parts that are drawn are compared, like in buildTimelineModel():
+    // not parts with a null date, not part types ignored on every bike type, and not part types
+    // without a lane on that bike's type. Back-to-back usages of one part on the same bike count
+    // as one mounting.
+    const bikeTypeByBikeId = new Map(validBikes.map(bike => [String(bike.id), BIKE_TYPES_BY_KEY[bike.type]]));
+    const datedMountingsByBikeId = new Map(validBikes.map(bike => [String(bike.id), []]));
+    for (const part of validParts) {
+      const isDrawn = !silentlySkippedPartTypes.has(part.type)
+        && part.usage.every(usage => usage.dateFrom != null && usage.dateTo != null);
+      const datedMountings = [];
+      for (const usage of part.usage) {
+        if (!datedMountingsByBikeId.has(String(usage.bikeId))) {
+          errors.push(`Part "${part.description}" references unknown bike ${usage.bikeId}`);
+          continue;
+        }
+        const bikeType = bikeTypeByBikeId.get(String(usage.bikeId));
+        if (!isDrawn || (bikeType && !bikeType.lanePartTypes.includes(part.type))) continue;
+        datedMountings.push({ bikeId: String(usage.bikeId), startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) });
+      }
+      datedMountings.sort((first, second) => first.startTimestamp - second.startTimestamp);
+      const mergedMountings = [];
+      for (const mounting of datedMountings) {
+        const previousMounting = mergedMountings[mergedMountings.length - 1];
+        const continuesOnSameBike = previousMounting
+          && previousMounting.bikeId === mounting.bikeId
+          && mounting.startTimestamp <= previousMounting.endTimestamp;
+        if (continuesOnSameBike) previousMounting.endTimestamp = Math.max(previousMounting.endTimestamp, mounting.endTimestamp);
+        else mergedMountings.push({ ...mounting, part });
+      }
+      mergedMountings.forEach(mounting => datedMountingsByBikeId.get(mounting.bikeId).push(mounting));
+    }
+    for (const bike of validBikes) {
+      const mountingsByPartType = {};
+      datedMountingsByBikeId.get(String(bike.id)).forEach(mounting => (mountingsByPartType[mounting.part.type] ||= []).push(mounting));
+      for (const partType in mountingsByPartType) {
+        let occupiedUntil = -Infinity;
+        const mountingsInOrder = mountingsByPartType[partType].sort((first, second) => first.startTimestamp - second.startTimestamp);
+        for (const mounting of mountingsInOrder) {
+          if (mounting.startTimestamp < occupiedUntil) {
+            errors.push(`${bike.name}: two × ${partType} at ${formatIsoDate(mounting.startTimestamp)} (${mounting.part.description})`);
+          }
+          occupiedUntil = Math.max(occupiedUntil, mounting.endTimestamp);
+        }
+      }
+    }
+
     return { errors, validBikes, validParts };
   }
 
@@ -374,8 +423,6 @@
   // =====================================================================
 
   function buildTimelineModel(data) {
-    const dataWarnings = [];
-
     const bikes = data.bikes.map(bike => ({ ...bike, mountings: [] }));
     const bikesById = Object.fromEntries(bikes.map(bike => [bike.id, bike]));
 
@@ -405,10 +452,7 @@
       const mergedMountings = [];
       for (const mounting of part.mountings) {
         const bike = bikesById[mounting.bikeId];
-        if (!bike) {
-          dataWarnings.push(`Part "${part.description}" references unknown bike ${mounting.bikeId}`);
-          continue;
-        }
+        if (!bike) continue; // reported by validateData()
         const bikeType = BIKE_TYPES_BY_KEY[bike.type];
         if (bikeType && !bikeType.lanePartTypes.includes(part.type)) {
           const warning = `${bike.name} (${bike.type}) has no "${part.type}" lane, so "${part.description}" is not shown on it`;
@@ -432,7 +476,7 @@
     const shownParts = parts.filter(part => part.mountings.length > 0);
 
     for (const bike of bikes) {
-      assignLanes(bike, dataWarnings);
+      assignLanes(bike);
       bike.builtPeriods = computeBuiltPeriods(bike);
       bike.partsEverMounted = [...new Set(bike.mountings.map(mounting => mounting.part))];
       bike.sortTimestamp = bike.builtPeriods.length
@@ -453,26 +497,13 @@
     const allTimestamps = shownParts.flatMap(part => part.mountings.flatMap(mounting => [mounting.startTimestamp, mounting.endTimestamp]));
     const earliestYear = new Date(Math.min(...allTimestamps, TODAY_TIMESTAMP)).getUTCFullYear();
 
-    return { bikes, bikesById, parts: shownParts, bikeTypeGroups, dataWarnings, earliestYear };
+    return { bikes, bikesById, parts: shownParts, bikeTypeGroups, earliestYear };
   }
 
   // Every part type has exactly one lane. Two parts of the same type on one bike at the
-  // same time are a data problem: they're warned about and drawn on top of each other.
-  function assignLanes(bike, dataWarnings) {
-    const mountingsByPartType = {};
-    bike.mountings.forEach(mounting => (mountingsByPartType[mounting.part.type] ||= []).push(mounting));
-
-    for (const partType in mountingsByPartType) {
-      let laneOccupiedUntil = -Infinity;
-      const mountingsInOrder = mountingsByPartType[partType].sort((first, second) => first.startTimestamp - second.startTimestamp);
-      for (const mounting of mountingsInOrder) {
-        if (mounting.startTimestamp < laneOccupiedUntil) {
-          dataWarnings.push(`${bike.name}: two × ${partType} at ${formatIsoDate(mounting.startTimestamp)} (${mounting.part.description})`);
-        }
-        mounting.laneIndex = laneIndexByPartType[partType];
-        laneOccupiedUntil = Math.max(laneOccupiedUntil, mounting.endTimestamp);
-      }
-    }
+  // same time are a data problem: they're reported by validateData() and drawn on top of each other.
+  function assignLanes(bike) {
+    bike.mountings.forEach(mounting => { mounting.laneIndex = laneIndexByPartType[mounting.part.type]; });
   }
 
   // Periods during which the bike had every required part of its type mounted.
@@ -1120,10 +1151,6 @@
 
 
     renderPartsTable();
-
-    const warningsElement = document.getElementById('data-warnings');
-    warningsElement.innerHTML = timelineModel.dataWarnings.map(warning => '⚠ ' + escapeHtml(warning)).join('<br>');
-    if (timelineModel.dataWarnings.length) console.warn(timelineModel.dataWarnings);
   }
 
   function renderPartsTable() {

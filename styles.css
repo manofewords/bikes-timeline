@@ -142,7 +142,6 @@ summary { cursor: pointer; font-weight: 600; }
 .parts-table th, .parts-table td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--gridline); vertical-align: top; }
 .parts-table th { color: var(--text-secondary); font-weight: 600; }
 .parts-table td.usage-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.data-warnings { color: var(--text-secondary); font-size: 12px; margin-top: 8px; }
 .data-errors { margin: 0 0 14px; box-shadow: inset 3px 0 0 var(--error-text); font-size: 12px; }
 .data-errors summary { color: var(--error-text); }
 .data-errors p { margin: 6px 0 0; color: var(--text-secondary); }

@@ -18,8 +18,8 @@ The scripts are loaded with plain `<script>` tags (no modules, no `fetch`), so t
 - **One lane per part type** inside each bike's bar. Each bike type has its own set of lanes, so bar widths differ. Part strips have fully round ends and are coloured by part group: chassis, wheels, brakes, cockpit, drivetrain and seat.
 - **Built periods**: the outlined grey bar is drawn only while every mandatory lane of the bike's type is filled (dark border in the light theme, light border in the dark theme). See [Bike types, lanes and "built"](#bike-types-lanes-and-built).
 - **Part moves**: right-angled "L" ribbons connect a part that moved from one bike to another. A dotted line marks a part that went back on the same bike after a break. See [Ribbons](#ribbons).
-- **Dates** are shown as month and year, `MM.YYYY` (for example `03.2014`), in the tooltips and on the poster (data warnings keep the full ISO date). A period that is still ongoing ends in "now".
-- **Interaction**: hover a part or a bike name for a tooltip and highlight, and click to pin it. Summary stats, a parts table and data warnings are shown below the chart.
+- **Dates** are shown as month and year, `MM.YYYY` (for example `03.2014`), in the tooltips and on the poster (data errors keep the full ISO date). A period that is still ongoing ends in "now".
+- **Interaction**: hover a part or a bike name for a tooltip and highlight, and click to pin it. Summary stats and a parts table are shown below the chart.
 - **Poster**: "Print A2 poster" (or Ctrl/Cmd+P) prints an A2 landscape version (594×420 mm). It has each part's description written vertically along its strip (no dates) and the built periods under each bike name (the duration moves to its own line when the column is too narrow). The strips are plain pale tints of the group colour (no darker edge), as wide as the ribbons and departure dots. A departure dot uses the full group colour, and a label never runs through a dot. All strip labels use one font size, the one that fits across a strip; a label that is too long is shortened with "…".
 
 ## Data
@@ -49,8 +49,10 @@ The data is checked when it is loaded, before it is processed. Each error is lis
 - No part is on two different bikes at the same time.
 - No part has two usage entries on the same bike that overlap in time. A usage ending on the day the next one starts is not an overlap.
 - Every bike type is one of the bike types above, and every part type is one of the part types in the build settings.
+- Every usage entry's `bikeId` is a bike in the data. A usage on an unknown bike (or on a bike left out for a missing field) is not drawn.
+- No bike has two parts of the same type at the same time (each part type has one lane, so they would be drawn on top of each other). Only parts that are drawn are compared: not parts with a `null` date, and not part types that are ignored on that bike's type in the build settings. Back-to-back usages of one part on the same bike count as one.
 
-Bikes and parts with a missing field or an unknown type are left out. Everything else (duplicate ids, overlapping dates) is still drawn as it is.
+Bikes and parts with a missing field or an unknown type are left out. Everything else (duplicate ids, overlapping dates, two parts of one type on a bike) is still drawn as it is.
 
 Some parts are skipped without an error:
 
