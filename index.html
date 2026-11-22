@@ -22,6 +22,7 @@
     --part-group-cockpit: #8061b0;
     --part-group-drivetrain: #bb566e;
     --part-group-seat: #729343;
+    --error-text: #b42318;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .viz-root {
@@ -41,6 +42,7 @@
       --part-group-cockpit: #997bca;
       --part-group-drivetrain: #d57087;
       --part-group-seat: #8cac5c;
+      --error-text: #f97066;
     }
   }
   :root[data-theme="dark"] .viz-root {
@@ -60,6 +62,7 @@
     --part-group-cockpit: #997bca;
     --part-group-drivetrain: #d57087;
     --part-group-seat: #8cac5c;
+    --error-text: #f97066;
   }
 
   * { box-sizing: border-box; }
@@ -152,6 +155,11 @@
   .parts-table th { color: var(--text-secondary); font-weight: 600; }
   .parts-table td.usage-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .data-warnings { color: var(--text-secondary); font-size: 12px; margin-top: 8px; }
+  .data-errors { margin: 0 0 14px; box-shadow: inset 3px 0 0 var(--error-text); font-size: 12px; }
+  .data-errors summary { color: var(--error-text); }
+  .data-errors p { margin: 6px 0 0; color: var(--text-secondary); }
+  .data-errors ul { margin: 6px 0 0; padding-left: 18px; max-height: 220px; overflow: auto; }
+  .data-errors li { padding: 1px 0; }
 
   /* ---------- print: A2 landscape poster ---------- */
   #print-poster { display: none; }
@@ -183,6 +191,12 @@
   </div>
 
   <div class="part-group-legend" id="part-group-legend"></div>
+
+  <details class="data-errors" id="data-errors" open hidden>
+    <summary id="data-errors-summary"></summary>
+    <p id="data-errors-note"></p>
+    <ul id="data-errors-list"></ul>
+  </details>
 
   <div class="chart-container" id="chart-container"></div>
 
@@ -218,10 +232,10 @@
   // Part groups: each has its own colour (CSS variable --part-group-<key>).
   const PART_GROUPS = {
     chassis:    { label: 'Chassis',    partTypesDescription: 'frame · shock · fork' },
-    wheels:     { label: 'Wheels',     partTypesDescription: 'front rim · front hub · front tire · rear rim · rear hub · rear tire' },
+    wheels:     { label: 'Wheels',     partTypesDescription: 'front rim · front hub · front spokes · front tire · rear rim · rear hub · rear spokes · rear tire' },
     brakes:     { label: 'Brakes',     partTypesDescription: 'brake · lever · disc, front and rear' },
     cockpit:    { label: 'Cockpit',    partTypesDescription: 'headset · stem · handlebars · grips' },
-    drivetrain: { label: 'Drivetrain', partTypesDescription: 'cranks · pedals · sprocket · gears' },
+    drivetrain: { label: 'Drivetrain', partTypesDescription: 'cranks · bottom bracket · pedals · sprocket · gears' },
     seat:       { label: 'Seat',       partTypesDescription: 'seat post · seat clamp · seat' },
   };
 
@@ -233,9 +247,11 @@
     { partType: 'fork',              partGroup: 'chassis' },
     { partType: 'front rim',         partGroup: 'wheels' },
     { partType: 'front hub',         partGroup: 'wheels' },
+    { partType: 'front spokes',      partGroup: 'wheels' },
     { partType: 'front tire',        partGroup: 'wheels' },
     { partType: 'rear rim',          partGroup: 'wheels' },
     { partType: 'rear hub',          partGroup: 'wheels' },
+    { partType: 'rear spokes',       partGroup: 'wheels' },
     { partType: 'rear tire',         partGroup: 'wheels' },
     { partType: 'front brake',       partGroup: 'brakes' },
     { partType: 'front brake lever', partGroup: 'brakes' },
@@ -248,6 +264,7 @@
     { partType: 'handlebars',        partGroup: 'cockpit' },
     { partType: 'grips',             partGroup: 'cockpit' },
     { partType: 'cranks',            partGroup: 'drivetrain' },
+    { partType: 'bottom bracket',    partGroup: 'drivetrain' },
     { partType: 'pedals',            partGroup: 'drivetrain' },
     { partType: 'sprocket',          partGroup: 'drivetrain' },
     { partType: 'gears',             partGroup: 'drivetrain' },
@@ -302,7 +319,7 @@
   }
 
   // Part types that are ignored on every bike type are skipped without a warning.
-  // Anything that is not a lane type is logged as an error.
+  // Anything that is not a lane type is reported by validateData().
   const KNOWN_PART_TYPES = new Set(LANE_DEFINITIONS.map(lane => lane.partType));
   let silentlySkippedPartTypes; // set by applyBikeTypeSettings()
   // =====================================================================
@@ -510,6 +527,124 @@
   let hoveredHighlightKey = null;
 
   // =====================================================================
+  // Validation: checks the JSON as loaded, before it is processed
+  // =====================================================================
+
+  const REQUIRED_BIKE_FIELDS = ['id', 'type', 'name'];
+  const REQUIRED_PART_FIELDS = ['id', 'type', 'description', 'usage'];
+  const REQUIRED_USAGE_FIELDS = ['bikeId', 'dateFrom', 'dateTo'];
+
+  // Returns every error found, and the bikes and parts that can be processed: those with all
+  // required fields and a known type. Everything else (duplicate ids, overlapping dates) is
+  // reported but still processed.
+  // A usage date may be null (a date still to be found out): the part is then skipped later
+  // without an error, see buildTimelineModel().
+  function validateData(data) {
+    const errors = [];
+    if (data === null || typeof data !== 'object' || !Array.isArray(data.bikes) || !Array.isArray(data.parts)) {
+      errors.push('The JSON has to be an object with a "bikes" list and a "parts" list');
+      return { errors, validBikes: [], validParts: [], note: 'Nothing can be shown.' };
+    }
+
+    const isMissing = value => value === undefined || value === null || value === '';
+    const bikeLabel = (bike, index) => isMissing(bike?.name) ? `Bike #${index + 1}` : `Bike "${bike.name}"`;
+    const partLabel = (part, index) => isMissing(part?.description) ? `Part #${index + 1}` : `Part "${part.description}"`;
+    const withId = (label, item) => isMissing(item?.id) ? label : `${label} (id ${item.id})`;
+
+    // Required fields
+    const validBikes = data.bikes.filter((bike, bikeIndex) => {
+      const missingFields = REQUIRED_BIKE_FIELDS.filter(field => isMissing(bike?.[field]));
+      if (missingFields.length) errors.push(`${withId(bikeLabel(bike, bikeIndex), bike)} has no ${missingFields.join(', ')}`);
+      return missingFields.length === 0;
+    });
+    const partsWithAllFields = data.parts.filter((part, partIndex) => {
+      const label = withId(partLabel(part, partIndex), part);
+      const missingFields = REQUIRED_PART_FIELDS.filter(field => isMissing(part?.[field]));
+      if (missingFields.length) {
+        errors.push(`${label} has no ${missingFields.join(', ')}`);
+        return false;
+      }
+      if (!Array.isArray(part.usage) || part.usage.length === 0) {
+        errors.push(`${label} has an empty usage list`);
+        return false;
+      }
+      let hasCompleteUsage = true;
+      part.usage.forEach((usage, usageIndex) => {
+        // dateFrom and dateTo may be null, but have to be there
+        const missingFields = REQUIRED_USAGE_FIELDS
+          .filter(field => field === 'bikeId' ? isMissing(usage?.[field]) : usage?.[field] === undefined || usage[field] === '');
+        if (missingFields.length) {
+          errors.push(`${label}: usage #${usageIndex + 1} has no ${missingFields.join(', ')}`);
+          hasCompleteUsage = false;
+        }
+      });
+      return hasCompleteUsage;
+    });
+
+    // Duplicate ids (bikes and parts are checked separately: a bike and a part may share an id)
+    const reportDuplicateIds = (items, labelOf, kind) => {
+      const labelsById = new Map();
+      items.forEach((item, index) => {
+        if (isMissing(item?.id)) return;
+        const key = String(item.id);
+        if (!labelsById.has(key)) labelsById.set(key, []);
+        labelsById.get(key).push(labelOf(item, index));
+      });
+      for (const [id, labels] of labelsById) {
+        if (labels.length > 1) errors.push(`${labels.length} ${kind} have the id ${id}: ${labels.join(', ')}`);
+      }
+    };
+    reportDuplicateIds(data.bikes, bikeLabel, 'bikes');
+    reportDuplicateIds(data.parts, partLabel, 'parts');
+
+    // Unknown bike types and part types (the ones in the build settings)
+    validBikes
+      .filter(bike => !BIKE_TYPES_BY_KEY[bike.type])
+      .forEach(bike => errors.push(`${withId(bikeLabel(bike), bike)} has unknown bike type "${bike.type}" (known: ${BIKE_TYPES.map(bikeType => bikeType.type).join(', ')})`));
+    const validParts = partsWithAllFields.filter(part => {
+      if (KNOWN_PART_TYPES.has(part.type)) return true;
+      errors.push(`${withId(partLabel(part), part)} has unknown part type "${part.type}"`);
+      return false;
+    });
+
+    // Overlapping usage dates of one part: on two different bikes at once, or twice on the same bike.
+    // A usage ending on the day the next one starts is not an overlap.
+    const bikeNamesById = new Map(data.bikes.map(bike => [String(bike?.id), bike?.name]));
+    const bikeNameOf = bikeId => bikeNamesById.get(String(bikeId)) ?? `unknown bike ${bikeId}`;
+    const describeUsage = usage => `${bikeNameOf(usage.bikeId)} ${usage.dateFrom} → ${usage.dateTo}`;
+    for (const part of validParts) {
+      const datedUsages = part.usage
+        .filter(usage => usage.dateFrom != null && usage.dateTo != null)
+        .map(usage => ({ usage, startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) }));
+      for (let firstIndex = 0; firstIndex < datedUsages.length; firstIndex++) {
+        for (let secondIndex = firstIndex + 1; secondIndex < datedUsages.length; secondIndex++) {
+          const first = datedUsages[firstIndex];
+          const second = datedUsages[secondIndex];
+          const overlaps = first.startTimestamp < second.endTimestamp && second.startTimestamp < first.endTimestamp;
+          if (!overlaps) continue;
+          const sameBike = String(first.usage.bikeId) === String(second.usage.bikeId);
+          errors.push(`${withId(partLabel(part), part)} ${sameBike ? 'has overlapping usage dates' : 'is on two bikes at once'}: `
+            + `${describeUsage(first.usage)} and ${describeUsage(second.usage)}`);
+        }
+      }
+    }
+
+    return { errors, validBikes, validParts };
+  }
+
+  // Shows the errors above the chart and logs each one with console.error.
+  const DATA_ERRORS_DEFAULT_NOTE = 'Bikes and parts with a missing field or an unknown type are not shown. Everything else is drawn as it is.';
+  function showDataErrors(errors, note = DATA_ERRORS_DEFAULT_NOTE) {
+    const errorsElement = document.getElementById('data-errors');
+    errorsElement.hidden = errors.length === 0;
+    document.getElementById('data-errors-summary').textContent =
+      `⚠ ${errors.length} data ${errors.length === 1 ? 'error' : 'errors'}`;
+    document.getElementById('data-errors-note').textContent = note;
+    document.getElementById('data-errors-list').innerHTML = errors.map(error => `<li>${escapeHtml(error)}</li>`).join('');
+    errors.forEach(error => console.error('Bike data: ' + error));
+  }
+
+  // =====================================================================
   // Model: derive built periods, lanes and ordering from raw data
   // =====================================================================
 
@@ -521,11 +656,7 @@
 
     const hasMissingDate = part => part.usage.some(usage => usage.dateFrom == null || usage.dateTo == null);
     const usableParts = data.parts.filter(part => {
-      if (!KNOWN_PART_TYPES.has(part.type)) {
-        console.error(`Part of unknown type "${part.type}" ignored: "${part.description}"`, part);
-        dataWarnings.push(`Ignored part of unknown type "${part.type}": ${part.description}`);
-        return false;
-      }
+      if (!KNOWN_PART_TYPES.has(part.type)) return false; // reported by validateData()
       if (silentlySkippedPartTypes.has(part.type)) return false;
       if (hasMissingDate(part)) {
         console.log(`Ignored part with a null date: ${part.type} "${part.description}"`, part);
@@ -585,10 +716,8 @@
         : (bike.mountings.length ? Math.min(...bike.mountings.map(mounting => mounting.startTimestamp)) : TODAY_TIMESTAMP);
     }
 
-    // Group bikes by type, chronologically within each group.
-    bikes
-      .filter(bike => !BIKE_TYPES_BY_KEY[bike.type])
-      .forEach(bike => dataWarnings.push(`Bike "${bike.name}" has unknown type "${bike.type}"`));
+    // Group bikes by type, chronologically within each group. Bikes of an unknown type are
+    // reported by validateData() and not placed.
     const bikeTypeGroups = BIKE_TYPES
       .map(entry => ({
         ...entry,
@@ -1290,7 +1419,9 @@
 
   function loadData(data) {
     rawData = data;
-    timelineModel = buildTimelineModel(data);
+    const { errors, validBikes, validParts, note } = validateData(data);
+    showDataErrors(errors, note);
+    timelineModel = buildTimelineModel({ bikes: validBikes, parts: validParts });
     pinnedHighlightKey = null;
     renderSummaryAndLegends();
     renderChart();
@@ -1313,8 +1444,7 @@
     try {
       loadData(JSON.parse(await selectedFile.text()));
     } catch (error) {
-      document.getElementById('data-warnings').textContent = '⚠ Could not read JSON: ' + error.message;
-      document.getElementById('parts-table-details').open = true;
+      showDataErrors(['Could not read JSON: ' + error.message], 'The data that was loaded before is still shown.');
     }
   });
 

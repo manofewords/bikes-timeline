@@ -28,18 +28,30 @@ The page comes with sample data embedded in a `<script id="bike-data">` tag. The
 }
 ```
 
-Some parts are skipped:
+### Validation
 
-- A part type that is ignored on every bike type in the build settings is skipped without a message (by default: pedals, seat clamp, headset, front tire, rear tire and grips).
+The data is checked when it is loaded, before it is processed. Each error is listed in a "data errors" box above the chart and logged with `console.error`. The checks:
+
+- Every bike has an `id`, `type` and `name`.
+- Every part has an `id`, `type`, `description` and a non-empty `usage` list, and every usage entry has a `bikeId`, `dateFrom` and `dateTo`. A date may be `null` (see below), but the field has to be there.
+- No two bikes, and no two parts, share an id. A bike and a part may share one.
+- No part is on two different bikes at the same time.
+- No part has two usage entries on the same bike that overlap in time. A usage ending on the day the next one starts is not an overlap.
+- Every bike type is one of the bike types above, and every part type is one of the part types in the build settings.
+
+Bikes and parts with a missing field or an unknown type are left out. Everything else (duplicate ids, overlapping dates) is still drawn as it is.
+
+Some parts are skipped without an error:
+
+- A part type that is ignored on every bike type in the build settings is skipped without a message (by default: pedals, seat clamp, headset, front tire, rear tire, grips, front spokes, rear spokes and bottom bracket).
 - A part with a `null` date in any usage is skipped and logged with `console.log`.
-- A part type that is not one of the part types in the build settings is logged with `console.error` and listed above the parts table.
 - A valid part type that is ignored on that bike's type (no lane) is skipped with `console.warn`.
 
 ## Bike types, lanes and "built"
 
 Each part type is **mandatory**, **optional** or **ignored** per bike type. Mandatory and optional part types get a lane (in a fixed order inside the bar, one lane per part type); ignored ones get no lane. A bike is "built" while every mandatory lane is filled.
 
-The gear button next to "Print A2 poster" opens the build settings: one table per bike type with one row per part type, grouped and coloured by part group like the legend (frame, fork, stem, handlebars, front rim, front hub, rear rim, rear hub, sprocket, cranks, rear brake, rear brake lever, front brake, front brake lever, gears, shock, front disc, rear disc, seat post, seat, pedals, seat clamp, headset, front tire, rear tire, grips). Closing the dialog applies the settings to the timeline. They are not saved: reloading the page goes back to the defaults.
+The gear button next to "Print A2 poster" opens the build settings: one table per bike type with one row per part type, grouped and coloured by part group like the legend (frame, fork, stem, handlebars, front rim, front hub, rear rim, rear hub, sprocket, cranks, rear brake, rear brake lever, front brake, front brake lever, gears, shock, front disc, rear disc, seat post, seat, pedals, seat clamp, headset, front tire, rear tire, grips, front spokes, rear spokes, bottom bracket). Closing the dialog applies the settings to the timeline. They are not saved: reloading the page goes back to the defaults.
 
 Default lanes per bike type (the `*_LANES` constants in `index.html`):
 
@@ -50,7 +62,7 @@ Default lanes per bike type (the `*_LANES` constants in `index.html`):
 - **commuter**: bmx + front brake, front brake lever, gears
 - **road**: same as gravel
 
-Default optional lanes: rear brake and rear brake lever on BMX (brakeless BMX allowed), shock on MTB (hardtails allowed), and all four brake lanes (front/rear brake and lever) on a commuter. Everything else with a lane is mandatory. Pedals, seat clamp, headset, front tire, rear tire and grips are ignored on every bike type by default. There is no bike or part status anywhere (no active/sold/dismantled/in use).
+Default optional lanes: rear brake and rear brake lever on BMX (brakeless BMX allowed), shock on MTB (hardtails allowed), and all four brake lanes (front/rear brake and lever) on a commuter. Everything else with a lane is mandatory. Pedals, seat clamp, headset, front tire, rear tire, grips, front spokes, rear spokes and bottom bracket are ignored on every bike type by default. There is no bike or part status anywhere (no active/sold/dismantled/in use).
 
 ## Ribbons
 
