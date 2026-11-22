@@ -68,11 +68,6 @@ body { margin: 0; }
 header h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
 header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 
-.summary-stats { display: flex; gap: 12px; flex-wrap: wrap; margin: 20px 0 16px; }
-.summary-stat { background: var(--surface-card); border-radius: 10px; padding: 10px 14px; min-width: 120px; }
-.summary-stat-value { display: block; font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.summary-stat-label { color: var(--text-secondary); font-size: 12px; }
-
 .controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
 .controls label { display: inline-flex; align-items: center; gap: 8px; }
 .controls input[type=range] { width: 140px; }

@@ -79,11 +79,6 @@ test('escapeHtml', () => {
   assertEqual(escapeHtml(`Haro Backtrail X1 frame 20.5" it's`), 'Haro Backtrail X1 frame 20.5&quot; it\'s');
   assertEqual(escapeHtml(42), '42');
 });
-test('listWithAnd: commas, and "and" before the last item', () => {
-  assertEqual(listWithAnd(['shock']), 'shock');
-  assertEqual(listWithAnd(['rear brake', 'rear brake lever']), 'rear brake and rear brake lever');
-  assertEqual(listWithAnd(['front brake', 'front brake lever', 'rear brake']), 'front brake, front brake lever and rear brake');
-});
 test('wrapTextIntoLines: wraps at spaces', () => {
   assertEqual(wrapTextIntoLines('Production Privée Shan No.5', 30, 2), ['Production Privée Shan No.5']);
   assertEqual(wrapTextIntoLines('Production Privée Shan No.5', 17, 2), ['Production Privée', 'Shan No.5']);

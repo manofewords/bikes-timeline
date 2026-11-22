@@ -85,14 +85,6 @@
     !bikeType.lanePartTypes.includes(partType) ? 'ignored'
       : bikeType.optionalPartTypes.includes(partType) ? 'optional' : 'mandatory';
 
-  // e.g. "every lane of its bike type filled; optional: rear brake and rear brake lever on BMX; shock on MTB"
-  function describeBuiltBike() {
-    const optionalDescriptions = BIKE_TYPES
-      .filter(bikeType => bikeType.optionalPartTypes.length > 0)
-      .map(bikeType => `${listWithAnd(bikeType.optionalPartTypes)} on ${bikeType.name}`);
-    return 'every lane of its bike type filled' + (optionalDescriptions.length ? `; optional: ${optionalDescriptions.join('; ')}` : '');
-  }
-
   // Part types that are ignored on every bike type are skipped without a warning.
   // Anything that is not a lane type is reported by validateData().
   const KNOWN_PART_TYPES = new Set(LANE_DEFINITIONS.map(lane => lane.partType));
@@ -145,7 +137,6 @@
     const partTypesIgnoredOnEveryBikeType = CONFIGURABLE_PART_TYPES
       .filter(partType => BIKE_TYPES.every(bikeType => !bikeType.lanePartTypes.includes(partType)));
     silentlySkippedPartTypes = new Set(partTypesIgnoredOnEveryBikeType);
-    document.getElementById('built-bike-description').textContent = describeBuiltBike();
   }
   applyBikeTypeSettings();
 
@@ -422,7 +413,6 @@
         if (bikeType && !bikeType.lanePartTypes.includes(part.type)) {
           const warning = `${bike.name} (${bike.type}) has no "${part.type}" lane, so "${part.description}" is not shown on it`;
           console.warn(warning);
-          dataWarnings.push(warning);
           continue;
         }
         const previousMounting = mergedMountings[mergedMountings.length - 1];
@@ -771,7 +761,6 @@
 
     tooltip.innerHTML = `
       <h4>${escapeHtml(bike.name)}</h4>
-      <div class="tooltip-meta">${escapeHtml(bike.type.toUpperCase())} · ${bike.partsEverMounted.length} parts over time</div>
       <table>${builtPeriodRows || '<tr><td>never had the full minimum set</td></tr>'}</table>
       ${bikesPartsCameFrom.size ? `<div class="tooltip-meta" style="margin:6px 0 0">Parts from: ${listNames(bikesPartsCameFrom)}</div>` : ''}
       ${bikesPartsWentTo.size ? `<div class="tooltip-meta" style="margin:2px 0 0">Parts passed to: ${listNames(bikesPartsWentTo)}</div>` : ''}`;
@@ -1119,22 +1108,10 @@
   }
 
   // =====================================================================
-  // Summary stats, legends and table view
+  // Summary legends and table view
   // =====================================================================
 
   function renderSummaryAndLegends() {
-    const partsMovedBetweenBikes = timelineModel.parts
-      .filter(part => new Set(part.mountings.map(mounting => mounting.bikeId)).size > 1).length;
-
-    const summaryStats = [
-      { value: timelineModel.bikes.length, label: 'bikes' },
-      { value: timelineModel.parts.length, label: 'parts tracked' },
-      { value: partsMovedBetweenBikes, label: 'parts moved between bikes' },
-    ];
-    document.getElementById('summary-stats').innerHTML = summaryStats
-      .map(stat => `<div class="summary-stat"><span class="summary-stat-value">${stat.value}</span><span class="summary-stat-label">${stat.label}</span></div>`)
-      .join('');
-
     document.getElementById('part-group-legend').innerHTML = Object.entries(PART_GROUPS)
       .map(([groupKey, group]) => `<span>
           <span class="color-swatch" style="background:var(--part-group-${groupKey})"></span><span class="part-group-legend-name">${group.label}</span>${group.partTypesDescription}
@@ -1181,11 +1158,8 @@
   }
 
   const zoomSlider = document.getElementById('zoom-slider');
-  const zoomValueLabel = document.getElementById('zoom-value-label');
-  zoomValueLabel.textContent = `${pixelsPerYear}px / year`;
   zoomSlider.addEventListener('input', () => {
     pixelsPerYear = Number(zoomSlider.value);
-    zoomValueLabel.textContent = `${pixelsPerYear}px / year`;
     renderChart();
   });
 

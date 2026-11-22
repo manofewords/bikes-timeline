@@ -42,9 +42,6 @@ const formatDuration = durationMs => {
 const escapeHtml = text => String(text).replace(/[&<>"]/g, character =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[character]));
 
-// "a", "a and b", "a, b and c"
-const listWithAnd = items => items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}` : items[0];
-
 // Wraps text at word boundaries into lines of at most maxCharactersPerLine characters.
 // Beyond maxLines, the last line ends in "…"; so does any single word that is too long.
 function wrapTextIntoLines(text, maxCharactersPerLine, maxLines) {

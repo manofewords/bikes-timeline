@@ -10,13 +10,10 @@
 <div class="viz-root">
   <header>
     <h1>Bike timeline</h1>
-    <p>Each column is a bike, with the newest dates at the top. The outlined grey bar shows when the bike was <em>built</em>: <span id="built-bike-description"></span>. Change which parts a bike needs with the gear button. Each coloured strip is a part in a fixed lane, and ribbons connect a part that moved from one bike to another. Hover a part or a bike name to trace it, and click to pin the highlight.</p>
   </header>
 
-  <div class="summary-stats" id="summary-stats"></div>
-
   <div class="controls">
-    <label>Zoom <input type="range" id="zoom-slider" min="28" max="200" value="64"> <span id="zoom-value-label"></span></label>
+    <label>Zoom <input type="range" id="zoom-slider" min="28" max="200" value="64"></label>
     <button class="button" id="load-json-button">Load JSON…</button><input type="file" id="json-file-input" accept="application/json,.json">
     <button class="button" id="copy-json-button">Copy JSON</button>
     <button class="button" id="print-poster-button">Print A2 poster</button>
