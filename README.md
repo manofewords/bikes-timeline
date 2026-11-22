@@ -4,9 +4,9 @@ A single self-contained HTML page that shows the history of my bikes and how par
 
 ## What it shows
 
-- **One column per bike**, grouped by type (BMX, MTB, DH, gravel, commuter) and in chronological order within each group. Time runs upwards in years, with the newest dates at the top.
+- **One column per bike**, grouped by type (BMX, MTB, DH, gravel, commuter, road) and in chronological order within each group. Time runs upwards in years, with the newest dates at the top.
 - **One lane per part type** inside each bike's bar. Each bike type has its own set of lanes, so bar widths differ. Part strips have fully round ends and are coloured by part group: chassis, wheels, brakes, cockpit, drivetrain and seat.
-- **Built periods**: the outlined grey bar is drawn only while every lane of the bike's type is filled (dark border in the light theme, light border in the dark theme). See [Bike types, lanes and "built"](#bike-types-lanes-and-built).
+- **Built periods**: the outlined grey bar is drawn only while every mandatory lane of the bike's type is filled (dark border in the light theme, light border in the dark theme). See [Bike types, lanes and "built"](#bike-types-lanes-and-built).
 - **Part moves**: right-angled "L" ribbons connect a part that moved from one bike to another. A dotted line marks a part that went back on the same bike after a break. See [Ribbons](#ribbons).
 - **Interaction**: hover a part or a bike name for a tooltip and highlight, and click to pin it. Summary stats, a parts table and data warnings are shown below the chart.
 - **Poster**: "Print A2 poster" (or Ctrl/Cmd+P) prints an A2 landscape version (594×420 mm). It has each part's description written vertically along its strip (no dates) and the built periods under each bike name.
@@ -15,7 +15,7 @@ A single self-contained HTML page that shows the history of my bikes and how par
 
 The page comes with sample data embedded in a `<script id="bike-data">` tag. The current data is fake, and the real data is still being collected. Use **Load JSON…** to open your own file and **Copy JSON** to copy the data that's loaded.
 
-- `bikes: [{ id: uuid, type: "bmx" | "mtb" | "dh" | "gravel" | "commuter", name: string }]`
+- `bikes: [{ id: uuid, type: "bmx" | "mtb" | "dh" | "gravel" | "commuter" | "road", name: string }]`
 - `parts: [{ id: uuid, type: string, description: string, usage: [{ bikeId: uuid, dateFrom: ISODate, dateTo: ISODate | "now" }] }]`
 
 ```json
@@ -30,22 +30,27 @@ The page comes with sample data embedded in a `<script id="bike-data">` tag. The
 
 Some parts are skipped:
 
-- Front tire, rear tire, grips, seat clamp, headset and pedals are skipped without a message.
+- A part type that is ignored on every bike type in the build settings is skipped without a message (by default: pedals, seat clamp, headset, front tire, rear tire and grips).
 - A part with a `null` date in any usage is skipped and logged with `console.log`.
-- A part type that is neither a lane type nor one of the skipped types above is logged with `console.error` and listed above the parts table.
-- A valid part type that has no lane on that bike's type is skipped with `console.warn`.
+- A part type that is not one of the part types in the build settings is logged with `console.error` and listed above the parts table.
+- A valid part type that is ignored on that bike's type (no lane) is skipped with `console.warn`.
 
 ## Bike types, lanes and "built"
 
-Lanes per bike type (fixed order inside a bar, one lane per part type):
+Each part type is **mandatory**, **optional** or **ignored** per bike type. Mandatory and optional part types get a lane (in a fixed order inside the bar, one lane per part type); ignored ones get no lane. A bike is "built" while every mandatory lane is filled.
+
+The gear button next to "Print A2 poster" opens the build settings: one table per bike type with one row per part type, grouped and coloured by part group like the legend (frame, fork, stem, handlebars, front rim, front hub, rear rim, rear hub, sprocket, cranks, rear brake, rear brake lever, front brake, front brake lever, gears, shock, front disc, rear disc, seat post, seat, pedals, seat clamp, headset, front tire, rear tire, grips). Closing the dialog applies the settings to the timeline. They are not saved: reloading the page goes back to the defaults.
+
+Default lanes per bike type (the `*_LANES` constants in `index.html`):
 
 - **bmx**: frame, fork, stem, handlebars, front rim, front hub, rear rim, rear hub, sprocket, cranks, rear brake, rear brake lever
 - **dh**: bmx + shock, front brake, front brake lever, front disc, rear disc, gears
-- **mtb**: dh + seatpost, seat
+- **mtb**: dh + seat post, seat
 - **gravel**: mtb without shock
 - **commuter**: bmx + front brake, front brake lever, gears
+- **road**: same as gravel
 
-A bike is "built" while every lane of its type is filled. Optional lanes: rear brake and rear brake lever on BMX (brakeless BMX allowed), shock on MTB (hardtails allowed), and all four brake lanes (front/rear brake and lever) on a commuter. There is no bike or part status anywhere (no active/sold/dismantled/in use).
+Default optional lanes: rear brake and rear brake lever on BMX (brakeless BMX allowed), shock on MTB (hardtails allowed), and all four brake lanes (front/rear brake and lever) on a commuter. Everything else with a lane is mandatory. Pedals, seat clamp, headset, front tire, rear tire and grips are ignored on every bike type by default. There is no bike or part status anywhere (no active/sold/dismantled/in use).
 
 ## Ribbons
 
