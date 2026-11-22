@@ -392,7 +392,8 @@
   //   |●|____________________| |   ← track 1, ● = departure dot
   //   | |
   //
-  // A part that leaves on its own leaves exactly at the top of its strip (no dot).
+  // A part that leaves on its own leaves exactly at the top of its strip, also marked with a dot.
+  // Every departure has a dot; arrivals never do.
   //
   // On the new bike, the ribbon stops a small gap below the new strip, so the strip's
   // bottom edge marks the exact start date. If the incoming part replaces a part that was
@@ -410,7 +411,7 @@
   // highest track, so the ribbons of one rebuild don't cross each other.
   // Built bars and strips always keep their real dates.
   // ---------------------------------------------------------------------
-  // Returns the ribbons, plus the departure dots ({ part, x, y }) of the parts that leave in a rebuild.
+  // Returns the ribbons, plus one departure dot ({ part, x, y }) per ribbon.
   function computeTransferRibbons({ laneCenterX, timestampToY, trackSpacing, ribbonWidth, connectorGapSize }) {
     // Group departures by (old bike, date): everything leaving a bike together shares one set of tracks.
     const departureGroups = new Map();
@@ -446,7 +447,7 @@
           const newStripBottomY = timestampToY(transfer.nextMounting.startTimestamp) - 1;
           const ribbonEndY = Math.min(newStripBottomY + connectorGapSize, departureY);
 
-          if (leavesTogether) departureDots.push({ part: transfer.part, x: transfer.startX, y: departureY });
+          departureDots.push({ part: transfer.part, x: transfer.startX, y: departureY });
           ribbons.push({
             ...transfer,
             pathData: `M${transfer.startX},${departureY} H${transfer.endX} V${ribbonEndY}`,
@@ -944,7 +945,7 @@
     }
   }
 
-  // A dot in a darker shade of the strip's colour where a rebuild ribbon leaves the strip.
+  // A dot in a darker shade of the strip's colour where a ribbon leaves the strip.
   function renderDepartureDots(svg, departureDots) {
     const dotLayer = createSvgElement('g', {}, svg);
     for (const dot of departureDots) {
@@ -1096,17 +1097,11 @@
   const POSTER_BIKE_NAME_LINE_HEIGHT = 15;
   const POSTER_BIKE_DETAIL_FONT_SIZE = 9.5;
   const POSTER_BIKE_DETAIL_LINE_HEIGHT = 12;
-  const POSTER_MIN_LABEL_SCALE = 0.8;      // labels may shrink to 80% before being shortened with "…"
 
   function mixWithWhite(hexColor, strength) {
     const channels = [1, 3, 5].map(offset => parseInt(hexColor.slice(offset, offset + 2), 16));
     const mixed = channels.map(channel => Math.round(255 + (channel - 255) * strength));
     return '#' + mixed.map(channel => channel.toString(16).padStart(2, '0')).join('');
-  }
-
-  function mixWithBlack(hexColor, strength) {
-    const channels = [1, 3, 5].map(offset => parseInt(hexColor.slice(offset, offset + 2), 16));
-    return '#' + channels.map(channel => Math.round(channel * strength).toString(16).padStart(2, '0')).join('');
   }
 
   const textMeasuringContext = document.createElement('canvas').getContext('2d');
@@ -1115,19 +1110,16 @@
     return textMeasuringContext.measureText(text).width;
   }
 
-  // Fit text into maxLength: shrink the font a little first, then shorten with "…".
+  // Fit text into maxLength at the given font size, shortening it with "…" if needed.
   // Returns null when not even a few characters fit.
-  function fitTextIntoLength(text, preferredFontSize, maxLength) {
-    const minimumFontSize = preferredFontSize * POSTER_MIN_LABEL_SCALE;
-    for (let fontSize = preferredFontSize; fontSize >= minimumFontSize - 0.01; fontSize -= preferredFontSize * 0.05) {
-      if (measureTextWidth(text, fontSize) <= maxLength) return { text, fontSize };
-    }
+  function fitTextIntoLength(text, fontSize, maxLength) {
+    if (measureTextWidth(text, fontSize) <= maxLength) return text;
     let shortened = text;
-    while (shortened.length > 3 && measureTextWidth(shortened.trimEnd() + '…', minimumFontSize) > maxLength) {
+    while (shortened.length > 3 && measureTextWidth(shortened.trimEnd() + '…', fontSize) > maxLength) {
       shortened = shortened.slice(0, -1);
     }
     if (shortened.length <= 3) return null;
-    return { text: shortened.trimEnd() + '…', fontSize: minimumFontSize };
+    return shortened.trimEnd() + '…';
   }
 
   function wrapTextByWidth(text, fontSize, fontWeight, maxWidth, maxLines) {
@@ -1202,16 +1194,25 @@
     });
 
     // ----- bike headers: name, built periods -----
-    const formatBuiltPeriod = period =>
-      `${formatMonthYear(period.startTimestamp)}–${formatMonthYear(period.endTimestamp)} · ${formatDuration(period.endTimestamp - period.startTimestamp)}`;
+    // A built period is one line ("Mar 2002–Jun 2007 · 5.3 y") when it fits the column (bar plus the
+    // gap to the next bike), otherwise the duration goes on a line of its own.
+    const builtPeriodLinesOf = (period, maxWidth) => {
+      const dates = `${formatMonthYear(period.startTimestamp)}–${formatMonthYear(period.endTimestamp)}`;
+      const duration = formatDuration(period.endTimestamp - period.startTimestamp);
+      const oneLine = `${dates} · ${duration}`;
+      return measureTextWidth(oneLine, POSTER_BIKE_DETAIL_FONT_SIZE) <= maxWidth ? [oneLine] : [dates, duration];
+    };
     const headerLinesByBikeId = {};
     for (const group of placedGroups) {
-      for (const bike of group.bikes) {
+      group.bikes.forEach((bike, bikeIndex) => {
+        const isLastBike = bikeIndex === group.bikes.length - 1;
+        const columnWidth = barWidthOf(bike.id)
+          + (isLastBike ? (group === placedGroups.at(-1) ? 0 : POSTER_GAP_BETWEEN_BIKE_TYPES) : POSTER_GAP_BETWEEN_BIKES) - 6;
         headerLinesByBikeId[bike.id] = {
-          nameLines: wrapTextByWidth(bike.name || `${group.label} ${bike.numberWithinType}`, POSTER_BIKE_NAME_FONT_SIZE, 700, barWidthOf(bike.id), 2),
-          builtPeriodLines: bike.builtPeriods.map(formatBuiltPeriod),
+          nameLines: wrapTextByWidth(bike.name || `${group.label} ${bike.numberWithinType}`, POSTER_BIKE_NAME_FONT_SIZE, 700, columnWidth, 2),
+          builtPeriodLines: bike.builtPeriods.flatMap(period => builtPeriodLinesOf(period, columnWidth)),
         };
-      }
+      });
     }
     const tallestHeaderContent = Math.max(...Object.values(headerLinesByBikeId).map(lines =>
       lines.nameLines.length * POSTER_BIKE_NAME_LINE_HEIGHT + lines.builtPeriodLines.length * POSTER_BIKE_DETAIL_LINE_HEIGHT));
@@ -1296,8 +1297,19 @@
       }, ribbonLayer);
     }
 
+    // Departure dots by part, so a strip's label can stop before the dots on it
+    const departureDotRadius = posterRibbonWidth / 2;
+    const departureDotsByPartId = new Map();
+    for (const dot of departureDots) {
+      if (!departureDotsByPartId.has(dot.part.id)) departureDotsByPartId.set(dot.part.id, []);
+      departureDotsByPartId.get(dot.part.id).push(dot);
+    }
+
     // ----- part strips with their descriptions written along them -----
-    const preferredLabelFontSize = Math.min(8.5, laneWidth * 0.95);
+    // A strip is as wide as a ribbon and a departure dot, centred in its lane. Every label uses the
+    // same font size, the one that fits across a strip; a label that is too long is shortened with "…".
+    const stripWidth = posterRibbonWidth;
+    const labelFontSize = Math.min(8.5, stripWidth * 0.95);
     const segmentLayer = createSvgElement('g', {}, svg);
     for (const part of timelineModel.parts) {
       const partColor = POSTER_PART_GROUP_COLORS[part.partGroup];
@@ -1306,32 +1318,46 @@
         const barLeftX = barLeftXByBikeId[mounting.bikeId];
         if (barLeftX == null) continue;
         const laneLeftX = barLeftX + laneOffsetX(mounting.bikeId, mounting.laneIndex);
+        const laneCenter = laneLeftX + laneWidth / 2;
         const topY = timestampToY(mounting.endTimestamp) + 1;
         const bottomY = timestampToY(mounting.startTimestamp) - 1;
         const stripHeight = Math.max(1.5, bottomY - topY);
-        const endRadius = laneWidth / 2; // fully round ends
-        createSvgElement('rect', { x: laneLeftX, y: topY, width: laneWidth, height: stripHeight, rx: endRadius, fill: tintColor }, segmentLayer);
-        // colour edge on the left, kept inside the round ends
-        if (stripHeight > 2 * endRadius) {
-          createSvgElement('rect', { x: laneLeftX, y: topY + endRadius, width: Math.min(1.4, laneWidth / 4), height: stripHeight - 2 * endRadius, fill: partColor }, segmentLayer);
-        }
+        createSvgElement('rect', {
+          x: laneCenter - stripWidth / 2, y: topY, width: stripWidth, height: stripHeight, rx: stripWidth / 2, // fully round ends
+          fill: tintColor,
+        }, segmentLayer);
 
-        const fittedLabel = fitTextIntoLength(part.description, preferredLabelFontSize, bottomY - topY - 4);
-        if (!fittedLabel) continue;
+        // The label reads upwards and never runs through a departure dot: it goes in the longer free
+        // stretch of the strip, below the lowest dot or above the highest one.
+        const dotYsOnStrip = (departureDotsByPartId.get(part.id) || [])
+          .filter(dot => Math.abs(dot.x - laneCenter) < 0.5 && dot.y >= topY && dot.y <= bottomY)
+          .map(dot => dot.y);
+        let labelTopY = topY;
+        let labelBottomY = bottomY;
+        if (dotYsOnStrip.length) {
+          const belowDotsTopY = Math.max(...dotYsOnStrip) + departureDotRadius + 1;
+          const aboveDotsBottomY = Math.min(...dotYsOnStrip) - departureDotRadius - 1;
+          if (bottomY - belowDotsTopY >= aboveDotsBottomY - topY) labelTopY = belowDotsTopY;
+          else labelBottomY = aboveDotsBottomY;
+        }
+        const labelText = fitTextIntoLength(part.description, labelFontSize, labelBottomY - labelTopY - 4);
+        if (!labelText) continue;
         // Rotated -90°: text reads bottom-to-top, glyphs extend to the left of the baseline.
-        const baselineX = laneLeftX + laneWidth / 2 + fittedLabel.fontSize * 0.36;
-        const labelStartY = bottomY - 2;
-        addText(segmentLayer, fittedLabel.text, {
+        const baselineX = laneCenter + labelFontSize * 0.36;
+        const labelStartY = labelBottomY - 2;
+        addText(segmentLayer, labelText, {
           transform: `translate(${baselineX.toFixed(2)},${labelStartY.toFixed(2)}) rotate(-90)`,
-          'font-size': fittedLabel.fontSize.toFixed(2), fill: POSTER_COLORS.textPrimary,
+          'font-size': labelFontSize.toFixed(2), fill: POSTER_COLORS.textPrimary,
         });
       }
     }
 
-    // ----- departure dots of rebuild ribbons, on top of the strips -----
+    // ----- departure dots of all ribbons, on top of the strips -----
+    // The poster's strips are pale tints, so the dot uses the full group colour (one step darker than
+    // the strip, like the screen's darker dot on a full-colour strip), and it is only as wide as the ribbon.
     for (const dot of departureDots) {
       createSvgElement('circle', {
-        cx: dot.x, cy: dot.y, r: laneWidth / 2, fill: mixWithBlack(POSTER_PART_GROUP_COLORS[dot.part.partGroup], DEPARTURE_DOT_SHADE),
+        cx: dot.x, cy: dot.y, r: departureDotRadius, fill: POSTER_PART_GROUP_COLORS[dot.part.partGroup],
       }, segmentLayer);
     }
   }
@@ -1341,9 +1367,6 @@
     addText(svg,
       `As of ${formatLongDate(TODAY_TIMESTAMP)} · ${timelineModel.bikes.length} bikes · ${timelineModel.parts.length} parts`,
       { x: 0, y: 46, 'font-size': 11, fill: POSTER_COLORS.textSecondary });
-    addText(svg,
-      `Outlined grey bar: bike built (${describeBuiltBike()}). Ribbon: part moved to another bike. Dotted line: part refitted to the same bike after a break.`,
-      { x: 0, y: 60, 'font-size': 10, fill: POSTER_COLORS.textMuted });
 
     // Legend, right-aligned: part groups
     const legendFontSize = 11;
