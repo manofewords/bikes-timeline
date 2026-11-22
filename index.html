@@ -478,9 +478,16 @@
 
   const parseDate = isoDateOrNow => isoDateOrNow === 'now' ? TODAY_TIMESTAMP : Date.parse(isoDateOrNow);
   const formatIsoDate = timestamp => timestamp === TODAY_TIMESTAMP ? 'now' : new Date(timestamp).toISOString().slice(0, 10);
-  const formatMonthYear = timestamp => timestamp === TODAY_TIMESTAMP
-    ? 'now'
-    : new Date(timestamp).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+  // Month and year as MM.YYYY, e.g. 03.2014.
+  const formatMonthYear = timestamp => {
+    const date = new Date(timestamp);
+    return `${String(date.getUTCMonth() + 1).padStart(2, '0')}.${date.getUTCFullYear()}`;
+  };
+  // A period as "start–end"; an ongoing period ends in "now".
+  const formatPeriodDates = (period, separator = '–') => {
+    const end = period.endTimestamp === TODAY_TIMESTAMP ? 'now' : formatMonthYear(period.endTimestamp);
+    return `${formatMonthYear(period.startTimestamp)}${separator}${end}`;
+  };
   const formatDuration = durationMs => {
     const years = durationMs / MILLISECONDS_PER_YEAR;
     return years >= 1 ? `${years.toFixed(1)} y` : `${Math.max(1, Math.round(durationMs / MILLISECONDS_PER_MONTH))} mo`;
@@ -987,7 +994,7 @@
     const bikeName = bikeId => escapeHtml(timelineModel.bikesById[bikeId].name);
     const mountingRows = part.mountings.map(mounting => `<tr>
         <td>${bikeName(mounting.bikeId)}</td>
-        <td>${formatMonthYear(mounting.startTimestamp)} – ${formatMonthYear(mounting.endTimestamp)}</td>
+        <td>${formatPeriodDates(mounting, ' – ')}</td>
         <td>${formatDuration(mounting.endTimestamp - mounting.startTimestamp)}</td>
       </tr>`).join('');
 
@@ -1005,7 +1012,7 @@
 
     const builtPeriodRows = bike.builtPeriods.map(period => `<tr>
         <td>built</td>
-        <td>${formatMonthYear(period.startTimestamp)} – ${formatMonthYear(period.endTimestamp)}</td>
+        <td>${formatPeriodDates(period, ' – ')}</td>
         <td>${formatDuration(period.endTimestamp - period.startTimestamp)}</td>
       </tr>`).join('');
 
@@ -1140,9 +1147,6 @@
     return lines;
   }
 
-  const formatLongDate = timestamp =>
-    new Date(timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-
   function renderPoster() {
     const posterContainer = document.getElementById('print-poster');
     posterContainer.innerHTML = '';
@@ -1194,10 +1198,10 @@
     });
 
     // ----- bike headers: name, built periods -----
-    // A built period is one line ("Mar 2002–Jun 2007 · 5.3 y") when it fits the column (bar plus the
+    // A built period is one line ("03.2002–06.2007 · 5.3 y") when it fits the column (bar plus the
     // gap to the next bike), otherwise the duration goes on a line of its own.
     const builtPeriodLinesOf = (period, maxWidth) => {
-      const dates = `${formatMonthYear(period.startTimestamp)}–${formatMonthYear(period.endTimestamp)}`;
+      const dates = formatPeriodDates(period);
       const duration = formatDuration(period.endTimestamp - period.startTimestamp);
       const oneLine = `${dates} · ${duration}`;
       return measureTextWidth(oneLine, POSTER_BIKE_DETAIL_FONT_SIZE) <= maxWidth ? [oneLine] : [dates, duration];
@@ -1365,7 +1369,7 @@
   function renderPosterTitleBand(svg, posterWidth, addText) {
     addText(svg, 'Bike timeline', { x: 0, y: 26, 'font-size': 26, 'font-weight': 700, fill: POSTER_COLORS.textPrimary });
     addText(svg,
-      `As of ${formatLongDate(TODAY_TIMESTAMP)} · ${timelineModel.bikes.length} bikes · ${timelineModel.parts.length} parts`,
+      `As of ${formatMonthYear(TODAY_TIMESTAMP)} · ${timelineModel.bikes.length} bikes · ${timelineModel.parts.length} parts`,
       { x: 0, y: 46, 'font-size': 11, fill: POSTER_COLORS.textSecondary });
 
     // Legend, right-aligned: part groups
