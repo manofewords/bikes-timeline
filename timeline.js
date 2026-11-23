@@ -1016,7 +1016,7 @@
   });
 
   const jsonFileInput = document.getElementById('json-file-input');
-  document.getElementById('load-json-button').addEventListener('click', () => jsonFileInput.click());
+  document.getElementById('import-json-button').addEventListener('click', () => jsonFileInput.click());
   jsonFileInput.addEventListener('change', async event => {
     const selectedFile = event.target.files[0];
     if (!selectedFile) return;
@@ -1027,15 +1027,17 @@
     }
   });
 
-  document.getElementById('copy-json-button').addEventListener('click', async event => {
-    const copyButton = event.currentTarget;
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(rawData, null, 2));
-      copyButton.textContent = 'Copied ✓';
-    } catch {
-      copyButton.textContent = 'Copy blocked';
-    }
-    setTimeout(() => { copyButton.textContent = 'Copy data'; }, 1600);
+  // Export saves the loaded data as bikes.json, in the same format that Import reads.
+  document.getElementById('export-json-button').addEventListener('click', () => {
+    const jsonBlob = new Blob([JSON.stringify(rawData, null, 2) + '\n'], { type: 'application/json' });
+    const downloadUrl = URL.createObjectURL(jsonBlob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = downloadUrl;
+    downloadLink.download = 'bikes.json';
+    document.body.append(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
   });
 
   // Build settings dialog: one section per bike type, one row per part type, and one radio button
@@ -1106,7 +1108,7 @@
 
 
   // The page starts with the test data (see README.md), which shows the cases the timeline can draw.
-  // Use "Load data…" to show your own data.
+  // Use "Import" to show your own data.
   const DEFAULT_DATA_FILE = 'test-bikes.json';
   async function loadDefaultData() {
     let data;
@@ -1116,7 +1118,7 @@
       data = await response.json();
     } catch (error) {
       showDataErrors([`Could not load ${DEFAULT_DATA_FILE}: ${error.message}`],
-        'Open the page through a local web server (see README.md), or use "Load data…".');
+        'Open the page through a local web server (see README.md), or use "Import".');
       return;
     }
     loadData(data);
