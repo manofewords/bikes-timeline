@@ -169,10 +169,10 @@ summary { cursor: pointer; font-weight: 600; }
 .chart-container .part-label { fill: #fff; pointer-events: none; }
 @page { margin: 10mm; }
 @media print {
-  /* one page of any size: the chart takes the height left under the title and legend and is scaled to fit it */
+  /* one page of any size: the chart takes the height left under the title and is scaled to fit it */
   .viz-root { display: flex; flex-direction: column; height: 100vh; min-height: 0; padding: 0; background: #fff;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .controls, .bike-toggles, .data-errors, #parts-table-details, .tooltip, .settings-dialog { display: none !important; }
+  .controls, .part-group-legend, .bike-toggles, .data-errors, #parts-table-details, .tooltip, .settings-dialog { display: none !important; }
   .chart-container { flex: 1; min-height: 0; overflow: hidden; max-height: none; border-radius: 0; background: #fff; }
   .chart-container > svg { width: 100%; height: 100%; } /* keeps its proportions: preserveAspectRatio in timeline.js */
   .part-label { display: inline; }
