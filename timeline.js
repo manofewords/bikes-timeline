@@ -97,6 +97,7 @@
   const LANE_GAP = 1;
   const PART_GROUP_GAP = 3;          // extra space between lanes of different part groups
   const BAR_INNER_PADDING = 5;       // space between the bar edge and the first/last lane
+  const MIN_BAR_WIDTH = 100;         // narrower bike bars are widened to this, with their lanes centred
   const RIBBON_TRACK_GAP = 1;        // empty space between the tracks of ribbons leaving a bike together
   const CONNECTOR_GAP_SIZE = 3;      // gap between an arriving ribbon and its new strip
   const DEPARTURE_DOT_SHADE = 0.6;   // departure dot colour: this much of the strip colour, the rest black
@@ -118,8 +119,9 @@
 
   // Lane positions for one bike type: x offset of each of its lanes (measured from the left edge
   // of the bike bar, indexed like LANE_DEFINITIONS; undefined for lanes the type doesn't have)
-  // and the resulting bar width. Bikes of different types have different widths.
-  function computeLaneLayout(bikeType, { laneWidth, laneGap, partGroupGap, barInnerPadding }) {
+  // and the resulting bar width. Bikes of different types have different widths, but at least
+  // minBarWidth: lanes that need less room are centred in the wider bar.
+  function computeLaneLayout(bikeType, { laneWidth, laneGap, partGroupGap, barInnerPadding, minBarWidth }) {
     const laneOffsetsX = [];
     let currentX = barInnerPadding;
     let previousPartGroup = null;
@@ -130,11 +132,13 @@
       currentX += laneWidth + laneGap;
       previousPartGroup = lane.partGroup;
     });
-    const barWidth = currentX - laneGap + barInnerPadding;
-    return { laneOffsetsX, barWidth };
+    const lanesBarWidth = currentX - laneGap + barInnerPadding;
+    const barWidth = Math.max(lanesBarWidth, minBarWidth);
+    const centringShift = (barWidth - lanesBarWidth) / 2;
+    return { laneOffsetsX: laneOffsetsX.map(offsetX => offsetX + centringShift), barWidth };
   }
 
-  const SCREEN_LANE_SPACING = { laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING };
+  const SCREEN_LANE_SPACING = { laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING, minBarWidth: MIN_BAR_WIDTH };
   let screenLaneLayoutByBikeType; // set by applyBikeTypeSettings()
 
   // Recomputes everything that depends on the lanes of each bike type. Call it after changing
