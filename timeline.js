@@ -1051,12 +1051,23 @@
       return `<section class="settings-section">
           <h3>${escapeHtml(bikeType.label)}</h3>
           <table class="settings-table">
-            <thead><tr><th>Part type</th>${PART_REQUIREMENTS.map(requirement => `<th>${capitalize(requirement)}</th>`).join('')}</tr></thead>
+            <thead><tr><th>Part type</th>${PART_REQUIREMENTS.map(requirement => `<th scope="col"><button type="button"
+              class="settings-column-button" data-requirement="${requirement}"
+              title="${escapeHtml(`Make every ${bikeType.name} part ${requirement}`)}">${capitalize(requirement)}</button></th>`).join('')}</tr></thead>
             ${groupBodies}
           </table>
         </section>`;
     }).join('');
   }
+
+  // Clicking a column heading (Mandatory, Optional, Ignored) selects it for every part type of that bike type.
+  buildSettingsSections.addEventListener('click', event => {
+    const columnButton = event.target.closest('.settings-column-button');
+    if (!columnButton) return;
+    const columnRadios = columnButton.closest('table')
+      .querySelectorAll(`input[type=radio][value="${columnButton.dataset.requirement}"]`);
+    for (const radio of columnRadios) radio.checked = true;
+  });
 
   function readBuildSettings() {
     for (const bikeType of BIKE_TYPES) {

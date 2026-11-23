@@ -96,6 +96,8 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .settings-table th { color: var(--text-secondary); font-weight: 600; text-align: center; }
 .settings-table th:first-child, .settings-table td:first-child { text-align: left; padding-left: 0; }
 .settings-table td { text-align: center; }
+.settings-column-button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.settings-column-button:hover { color: var(--text-primary); text-decoration: underline; }
 .settings-table tbody:last-child tr:last-child td { border-bottom: none; }
 .settings-part-group-heading th { text-align: left; padding: 10px 0 3px; color: var(--text-primary); font-weight: 600; }
 .settings-part-group-heading .color-swatch { background: var(--group-color); }
