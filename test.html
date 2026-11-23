@@ -24,8 +24,7 @@
         font-size: 14px;
         margin: 20px 0 6px;
       }
-      #summary,
-      #visual-summary {
+      #summary {
         font-weight: 600;
         margin: 0 0 12px;
       }
@@ -56,10 +55,10 @@
         color: #52514e;
         max-width: 860px;
       }
-      #visual-status {
+      .visual-status {
         margin: 0 0 8px;
       }
-      #visual-stage {
+      .visual-stage {
         position: relative;
         margin: 8px 0 6px;
         border: 1px solid #d0d7de;
@@ -67,16 +66,16 @@
         user-select: none;
         touch-action: none;
       }
-      #visual-stage img {
+      .visual-stage img {
         position: absolute;
         top: 0;
         left: 0;
         pointer-events: none;
       }
-      #visual-stage img[hidden] {
+      .visual-stage img[hidden] {
         display: none;
       }
-      #visual-divider {
+      .visual-divider {
         position: absolute;
         top: 0;
         bottom: 0;
@@ -91,7 +90,7 @@
         font-size: 12px;
         color: #52514e;
       }
-      #visual-split-slider {
+      .visual-split-slider {
         display: block;
         width: 100%;
         margin: 0;
@@ -117,26 +116,32 @@
     <p id="summary">Running…</p>
     <ul id="results"></ul>
 
-    <h2>Visual test</h2>
+    <h2>Visual tests</h2>
     <p class="visual-intro">
-      The chart of <code>index.html</code>, drawn from <code>test-bikes.json</code> as if today were 2025-09-30, compared
-      with <code>visual-reference.png</code>: the reference on the left of the red line, the current drawing on the right.
-      Drag across the image or use the slider. If the changes are wanted, save the drawing as the new reference
-      (replace <code>visual-reference.png</code> next to this page).
+      The chart of <code>index.html</code>, drawn from <code>test-bikes.json</code> as if today were 2025-09-30, as it is
+      shown on screen and as it prints, each compared with its reference image: the reference on the left of the red
+      line, the current drawing on the right. Drag across the image or use the slider. If the changes are wanted, save
+      the drawing as the new reference (replace the reference image next to this page).
     </p>
-    <p id="visual-status">Drawing the chart…</p>
     <ul id="visual-errors"></ul>
-    <p id="reference-missing" class="fail" hidden>There is no visual-reference.png yet.</p>
-    <button id="save-reference-button" disabled>Save as new reference…</button>
-    <div class="visual-compare">
-      <div id="visual-stage">
-        <img id="visual-reference-image" alt="Reference" />
-        <img id="visual-current-image" alt="Current drawing" />
-        <div id="visual-divider"></div>
-      </div>
-      <input type="range" id="visual-split-slider" min="0" max="100" step="0.1" value="50" aria-label="Divider between reference and current drawing" />
-      <div class="visual-labels"><span>← reference</span><span>current →</span></div>
-    </div>
+    <div id="visual-tests"></div>
+    <template id="visual-test-template">
+      <section>
+        <h3><span class="visual-title"></span> (<code class="visual-reference-name"></code>)</h3>
+        <p class="visual-status">Drawing the chart…</p>
+        <p class="visual-missing fail" hidden></p>
+        <button class="visual-save-button" disabled>Save as new reference…</button>
+        <div class="visual-compare">
+          <div class="visual-stage">
+            <img class="visual-reference-image" alt="Reference" />
+            <img class="visual-current-image" alt="Current drawing" />
+            <div class="visual-divider"></div>
+          </div>
+          <input type="range" class="visual-split-slider" min="0" max="100" step="0.1" value="50" aria-label="Divider between reference and current drawing" />
+          <div class="visual-labels"><span>← reference</span><span>current →</span></div>
+        </div>
+      </section>
+    </template>
 
     <script src="utils.js"></script>
     <script src="test.js"></script>

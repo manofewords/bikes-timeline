@@ -6,10 +6,10 @@ An HTML page that shows the history of my bikes and how parts moved between them
 
 - `index.html`: the page itself.
 - `test-bikes.json`: the test data, shown when the page opens (see [Test data](#test-data)).
-- `styles.css`: all styles, including the dark theme and the print styles for the poster.
-- `utils.js`: small helpers with no state of their own: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatDuration`, …), `escapeHtml`, text wrapping, `displayNameOf` and `mixWithWhite`.
-- `timeline.js`: everything else: configuration, validation, the model, the screen chart, the A2 poster and the controls.
-- `test.html` and `test.js`: unit tests for `utils.js`. `test.html` also runs the visual test (`visual-test.js`, with the reference image `visual-reference.png`). See [Tests](#tests).
+- `styles.css`: all styles, including the dark theme and the print styles.
+- `utils.js`: small helpers with no state of their own: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatPeriodYears`, `formatDuration`, …), `escapeHtml`, text wrapping, `displayNameOf` and `mixWithWhite`.
+- `timeline.js`: everything else: configuration, validation, the model, the chart and the controls.
+- `test.html` and `test.js`: unit tests for `utils.js`. `test.html` also runs the visual tests (`visual-test.js`, with the reference images `visual-reference.png` and `visual-reference-print.png`). See [Tests](#tests).
 
 The scripts are loaded with plain `<script>` tags (no modules). `utils.js` is loaded first and its helpers are global; `timeline.js` keeps its own code inside a function.
 
@@ -17,11 +17,12 @@ The scripts are loaded with plain `<script>` tags (no modules). `utils.js` is lo
 
 - **One column per bike**, grouped by type (BMX, MTB, DH, gravel, commuter, road) and in chronological order within each group. Time runs upwards in years, with the newest dates at the top.
 - **One lane per part type** inside each bike's bar. Each bike type has its own set of lanes, so bar widths differ. Part strips have fully round ends and are coloured by part group: chassis, wheels, brakes, cockpit, drivetrain and seat.
-- **Built periods**: the outlined grey bar is drawn only while every mandatory lane of the bike's type is filled (dark border in the light theme, light border in the dark theme). See [Bike types, lanes and "built"](#bike-types-lanes-and-built).
+- **Built periods**: the outlined grey bar is drawn only while every mandatory lane of the bike's type is filled (dark border in the light theme, light border in the dark theme). The built periods are also listed under each bike name, aligned to the bottom of the header, one per line, in years only (`YYYY–YYYY · duration`, the duration from the full dates; the tooltip keeps month and year); the duration moves to its own line when the column is too narrow. See [Bike types, lanes and "built"](#bike-types-lanes-and-built).
 - **Part moves**: right-angled "L" ribbons connect a part that moved from one bike to another. A dotted line marks a part that went back on the same bike after a break. See [Ribbons](#ribbons).
-- **Dates** are shown as month and year, `MM.YYYY` (for example `03.2014`), in the tooltips and on the poster (data errors keep the full ISO date). A period that is still ongoing ends in "now".
-- **Interaction**: hover a part or a bike name for a tooltip and highlight, and click to pin it. Summary stats and a parts table are shown below the chart.
-- **Poster**: "Print A2 poster" (or Ctrl/Cmd+P) prints an A2 landscape version (594×420 mm). It has each part's description written vertically along its strip (no dates) and the built periods under each bike name (the duration moves to its own line when the column is too narrow). The strips are plain pale tints of the group colour (no darker edge), as wide as the ribbons and departure dots. A departure dot uses the full group colour, and a label never runs through a dot. All strip labels use one font size, the one that fits across a strip; a label that is too long is shortened with "…".
+- **Dates** are shown as month and year, `MM.YYYY` (for example `03.2014`), in the tooltips (data errors keep the full ISO date). A period that is still ongoing ends in "now".
+- **Interaction**: hover a part or a bike name for a tooltip and highlight, and click to pin it. A parts table is shown below the chart.
+- **Bike checkboxes**: one checkbox per bike, grouped by bike type, above the chart. Clicking a bike type's name checks all its bikes, or unchecks them all when they're all checked. An unchecked bike is not drawn, on screen or in print, and neither are the ribbons to and from it.
+- **Print** (Ctrl/Cmd+P): the same chart, in the same colours, on one page of whatever paper size is chosen in the print dialog, scaled to fit it. Print always uses the light theme and leaves out the zoom slider, the buttons, the bike checkboxes, the data errors and the parts table. The bike checkboxes choose which bikes are printed and the zoom sets the chart's height, so together they decide how big the chart comes out on the page. In print only, each part's description is written along its strip in white, reading upwards, in a small font (`PART_LABEL_FONT_SIZE`) and shortened with "…" when it doesn't fit. The class `print-view` on `<html>` shows the chart as it prints, on screen (the print visual test uses it).
 
 ## Data
 
@@ -65,7 +66,7 @@ Some parts are skipped without an error:
 
 Each part type is **mandatory**, **optional** or **ignored** per bike type. Mandatory and optional part types get a lane (in a fixed order inside the bar, one lane per part type); ignored ones get no lane. A bike is "built" while every mandatory lane is filled.
 
-The gear button next to "Print A2 poster" opens the build settings: one table per bike type with one row per part type, grouped and coloured by part group like the legend (frame, fork, stem, handlebars, front rim, front hub, rear rim, rear hub, sprocket, cranks, rear brake, rear brake lever, front brake, front brake lever, gears, shock, front disc, rear disc, seat post, seat, pedals, seat clamp, headset, front tire, rear tire, grips, front spokes, rear spokes, bottom bracket). Closing the dialog applies the settings to the timeline. They are not saved: reloading the page goes back to the defaults.
+The gear button next to "Copy JSON" opens the build settings: one table per bike type with one row per part type, grouped and coloured by part group like the legend (frame, fork, stem, handlebars, front rim, front hub, rear rim, rear hub, sprocket, cranks, rear brake, rear brake lever, front brake, front brake lever, gears, shock, front disc, rear disc, seat post, seat, pedals, seat clamp, headset, front tire, rear tire, grips, front spokes, rear spokes, bottom bracket). Closing the dialog applies the settings to the timeline. They are not saved: reloading the page goes back to the defaults.
 
 Default lanes per bike type (the `*_LANES` constants in `timeline.js`):
 
@@ -89,7 +90,7 @@ Parts moving between bikes are connected by right-angled "L" ribbons: horizontal
 
 ## Test data
 
-`test-bikes.json` is a small, made-up data set that shows what the timeline can draw and covers its tricky cases. It is what the page shows when it opens, and what the visual test draws. It has to pass the validation without errors. There are four bikes, drawn in this order: three BMX (A, B, C), then a commuter (D). Each part's description names its case by number, so it can be found on the chart and the poster:
+`test-bikes.json` is a small, made-up data set that shows what the timeline can draw and covers its tricky cases. It is what the page shows when it opens, and what the visual test draws. It has to pass the validation without errors. There are four bikes, drawn in this order: three BMX (A, B, C), then a commuter (D). Each part's description names its case by number, so it can be found on the chart and in print:
 
 1. **Wheels lent for a short time**: C is first built with B's four wheel parts (front and rear rim and hub) for two months, then gets its own; B gets its wheels back the same day. B is not built while its wheels are away, so it has two built periods. Four parts leave B together, and later four leave C together: one ribbon track each.
 2. **Parts moving to a bike that is not the next one**: A's cranks and handlebars go to C, past B; A's sprocket and fork go to D, past B, C and the gap between bike types; C's rear brake goes back left to A, past B.
@@ -103,7 +104,7 @@ Parts moving between bikes are connected by right-angled "L" ribbons: horizontal
 10. **Back-to-back usages** on the same bike are merged into one strip (A's fork).
 11. **A bike that is never built** (D, which also has fewer lanes as a commuter), and a BMX without a rear brake that still counts as built (B).
 12. **Parts that are not drawn**: pedals (ignored on every bike type) and a part with a `null` date.
-13. **Text**: C's long name wraps onto two lines and is cut with "…"; on the poster, the long description of B's front rim is shortened with "…".
+13. **Text**: C's long name wraps onto two lines and is cut with "…"; in print, the long description of B's front rim is shortened with "…".
 14. **Usage entries out of order** (C's rear brake): the timeline sorts them.
 
 ## Tests
@@ -111,7 +112,7 @@ Parts moving between bikes are connected by right-angled "L" ribbons: horizontal
 Open http://localhost:8000/test.html (with the local web server running). It runs:
 
 - **Unit tests** (`test.js`) for the helpers in `utils.js`.
-- **A visual test** (`visual-test.js`): `index.html` is loaded in a hidden frame and draws `test-bikes.json`, in the light theme and as if today were 2025-09-30 (`index.html?today=2025-09-30`), so the drawing doesn't change from day to day. Its chart is shown over the reference image `visual-reference.png`, with the reference on the left of a red line and the current drawing on the right; drag across the image or use the slider to move the line. Any data errors are listed. When the changes are wanted, **Save as new reference…** saves the current drawing as the new `visual-reference.png` (Chrome and Edge open a save dialog, other browsers download the file; it replaces the old one next to `test.html`). The poster is not part of the test.
+- **Two visual tests** (`visual-test.js`): `index.html` is loaded in a hidden frame and draws `test-bikes.json`, in the light theme and as if today were 2025-09-30 (`index.html?today=2025-09-30`), so the drawing doesn't change from day to day. The chart is drawn twice: as it is shown on screen, compared with `visual-reference.png`, and as it prints (with the class `print-view` on `<html>`, so with the part descriptions), compared with `visual-reference-print.png`. Each drawing is shown over its reference image, with the reference on the left of a red line and the current drawing on the right; drag across the image or use the slider to move the line. Any data errors are listed. When the changes are wanted, **Save as new reference…** saves that drawing as the new reference image (Chrome and Edge open a save dialog, other browsers download the file; it replaces the old one next to `test.html`). The print test checks the chart only, not the page layout of the printout (hidden controls, scaling to the page).
 
 Text is drawn with the fonts of the computer and browser, so a reference image saved on another computer or in another browser differs in all text.
 

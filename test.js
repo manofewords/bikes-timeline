@@ -60,6 +60,11 @@ test('formatPeriodDates: an ongoing period ends in "now"', () => {
   assertEqual(formatPeriodDates(makePeriod('2021-04-10', 'now')), '04.2021–now');
   assertEqual(formatPeriodDates(makePeriod('2021-04-10', 'now'), ' – '), '04.2021 – now');
 });
+test('formatPeriodYears: start and end year, "now", or a single year', () => {
+  assertEqual(formatPeriodYears(makePeriod('2002-03-01', '2007-06-30')), '2002–2007');
+  assertEqual(formatPeriodYears(makePeriod('2021-04-10', 'now')), '2021–now');
+  assertEqual(formatPeriodYears(makePeriod('2014-05-01', '2014-11-20')), '2014');
+});
 test('formatDuration: years with one decimal from one year on', () => {
   assertEqual(formatDuration(MILLISECONDS_PER_YEAR), '1.0 y');
   assertEqual(formatDuration(durationBetween('2002-03-01', '2007-06-30')), '5.3 y');
@@ -100,13 +105,6 @@ test('displayNameOf: the name, or the type label and number', () => {
   assertEqual(displayNameOf({ type: 'mtb', name: 'NS Decade', numberWithinType: 4 }, bikeTypesByKey), 'NS Decade');
   assertEqual(displayNameOf({ type: 'mtb', name: '', numberWithinType: 2 }, bikeTypesByKey), 'MTB 2');
   assertEqual(displayNameOf({ type: 'bmx', numberWithinType: 1 }, bikeTypesByKey), 'BMX 1');
-});
-
-test('mixWithWhite: the colour, white, and tints in between', () => {
-  assertEqual(mixWithWhite('#446cb4', 1), '#446cb4');
-  assertEqual(mixWithWhite('#446cb4', 0), '#ffffff');
-  assertEqual(mixWithWhite('#446cb4', 0.3), '#c7d3e9');
-  assertEqual(mixWithWhite('#000000', 0.5), '#808080');
 });
 
 const summary = document.getElementById('summary');

@@ -1,4 +1,4 @@
-// The bike timeline: data validation, the model, the screen chart, the A2 poster and the controls.
+// The bike timeline: data validation, the model, the chart (on screen and in print) and the controls.
 // Needs utils.js, loaded before it.
 (() => {
   // =====================================================================
@@ -103,10 +103,18 @@
   const GAP_BETWEEN_BIKES = 24;
   const GAP_BETWEEN_BIKE_TYPES = 34;
   const YEAR_AXIS_WIDTH = 52;
-  const HEADER_HEIGHT = 84;
+  const HEADER_HEIGHT = 84;          // at least; taller when bike headers need more lines
+  const BIKE_NAME_FIRST_LINE_Y = 46;
+  const BIKE_NAME_LINE_HEIGHT = 14;
+  const BUILT_PERIOD_FONT_SIZE = 10; // built periods under each bike name
+  const BUILT_PERIOD_LINE_HEIGHT = 12;
+  const NAME_TO_BUILT_PERIODS_MIN_GAP = 8; // at least this much space between a bike's name and its built periods
+  const BUILT_PERIODS_BOTTOM_PADDING = 8;  // space between the last built period and the bottom of the header
   const BOTTOM_PADDING = 24;
   const BIKE_NAME_AVERAGE_CHARACTER_WIDTH = 6.4; // for wrapping bike names to the width of their bar
   const BIKE_NAME_MAX_LINES = 2;
+  const PART_LABEL_FONT_SIZE = LANE_WIDTH * 0.8;  // print only: part descriptions written along the strips
+  const PART_LABEL_END_PADDING = 2;               // space between a label and the ends of its strip
 
   // Lane positions for one bike type: x offset of each of its lanes (measured from the left edge
   // of the bike bar, indexed like LANE_DEFINITIONS; undefined for lanes the type doesn't have)
@@ -250,6 +258,7 @@
   let pixelsPerYear = 64;
   let pinnedHighlightKey = null; // 'part:<id>' or 'bike:<id>', set by clicking
   let hoveredHighlightKey = null;
+  const hiddenBikeIds = new Set(); // bikes whose checkbox is unchecked: not drawn on screen or in print
 
   // =====================================================================
   // Validation: checks the JSON as loaded, before it is processed
@@ -544,14 +553,16 @@
 
     const timelineStartTimestamp = Date.UTC(timelineModel.earliestYear, 0, 1);
     const timelineEndTimestamp = Date.UTC(CURRENT_YEAR + 1, 0, 1);
-    const plotTopY = HEADER_HEIGHT + 10;
-    const timestampToY = timestamp => plotTopY + (timelineEndTimestamp - timestamp) / MILLISECONDS_PER_YEAR * pixelsPerYear;
-    const svgHeight = timestampToY(timelineStartTimestamp) + BOTTOM_PADDING;
 
-    // Horizontal position of every bike bar
+    // Horizontal position of every shown bike bar. Hidden bikes (and bikes of an unknown type)
+    // get no position, so nothing is drawn on them and no ribbon goes to or from them.
+    const shownBikeTypeGroups = timelineModel.bikeTypeGroups
+      .map(group => ({ ...group, bikes: group.bikes.filter(bike => !hiddenBikeIds.has(bike.id)) }))
+      .filter(group => group.bikes.length > 0);
     const barWidthOf = bike => screenLaneLayoutByBikeType[bike.type].barWidth;
-    const columns = layoutBikeColumns(YEAR_AXIS_WIDTH + 16, GAP_BETWEEN_BIKES, GAP_BETWEEN_BIKE_TYPES, barWidthOf);
-    for (const group of timelineModel.bikeTypeGroups) {
+    const columns = layoutBikeColumns(shownBikeTypeGroups, YEAR_AXIS_WIDTH + 16, GAP_BETWEEN_BIKES, GAP_BETWEEN_BIKE_TYPES, barWidthOf);
+    timelineModel.bikes.forEach(bike => { bike.barLeftX = null; });
+    for (const group of shownBikeTypeGroups) {
       Object.assign(group, columns.xRangeByGroup.get(group));
       for (const bike of group.bikes) {
         bike.barLeftX = columns.barLeftXByBikeId[bike.id];
@@ -560,17 +571,35 @@
     }
     const svgWidth = columns.rightX + 24;
 
+    // Header lines of every shown bike; the plot starts below the tallest header.
+    const headerLinesByBikeId = {};
+    for (const group of shownBikeTypeGroups) {
+      group.bikes.forEach((bike, bikeIndex) => {
+        const isLastBikeOfGroup = bikeIndex === group.bikes.length - 1;
+        const columnWidth = bike.barWidth + (isLastBikeOfGroup ? 0 : GAP_BETWEEN_BIKES - 10);
+        headerLinesByBikeId[bike.id] = bikeHeaderLines(bike, columnWidth);
+      });
+    }
+    const headerBottomY = Math.max(HEADER_HEIGHT, ...Object.values(headerLinesByBikeId).map(({ nameLines, builtPeriodLines }) =>
+      BIKE_NAME_FIRST_LINE_Y + (nameLines.length - 1) * BIKE_NAME_LINE_HEIGHT + NAME_TO_BUILT_PERIODS_MIN_GAP
+      + builtPeriodLines.length * BUILT_PERIOD_LINE_HEIGHT + BUILT_PERIODS_BOTTOM_PADDING));
+    const plotTopY = headerBottomY + 10;
+    const timestampToY = timestamp => plotTopY + (timelineEndTimestamp - timestamp) / MILLISECONDS_PER_YEAR * pixelsPerYear;
+    const svgHeight = timestampToY(timelineStartTimestamp) + BOTTOM_PADDING;
+
     const svg = createSvgElement('svg', {
       width: svgWidth, height: svgHeight, viewBox: `0 0 ${svgWidth} ${svgHeight}`,
+      preserveAspectRatio: 'xMinYMin meet', // in print, scaled to fit the page from the top left
       role: 'img', 'aria-label': 'Timeline of bikes and the parts moved between them',
     }, chartContainer);
 
     renderYearGrid(svg, svgWidth, timestampToY);
-    renderBikeHeaders(svg);
+    renderBikeHeaders(svg, shownBikeTypeGroups, headerLinesByBikeId, headerBottomY);
     renderBuiltBars(svg, timestampToY);
     const departureDots = renderPartRibbons(svg, timestampToY);
-    renderPartSegments(svg, timestampToY);
+    const partLabelLayer = renderPartSegments(svg, timestampToY);
     renderDepartureDots(svg, departureDots);
+    svg.appendChild(partLabelLayer); // on top of the dots
 
     svg.addEventListener('click', event => { if (event.target === svg) togglePinnedHighlight(null); });
     applyHighlight();
@@ -578,11 +607,11 @@
 
   // Places the bike bars left to right, group by group, with a gap between bikes and a wider one
   // between bike types. Returns the left x of every bar, the x range of every group and the right end.
-  function layoutBikeColumns(startX, gapBetweenBikes, gapBetweenBikeTypes, barWidthOf) {
+  function layoutBikeColumns(bikeTypeGroups, startX, gapBetweenBikes, gapBetweenBikeTypes, barWidthOf) {
     const barLeftXByBikeId = {};
     const xRangeByGroup = new Map();
     let currentX = startX;
-    timelineModel.bikeTypeGroups.forEach((group, groupIndex) => {
+    bikeTypeGroups.forEach((group, groupIndex) => {
       if (groupIndex > 0) currentX += gapBetweenBikeTypes;
       const leftX = currentX;
       group.bikes.forEach((bike, bikeIndex) => {
@@ -613,9 +642,24 @@
     todayLabel.textContent = 'today';
   }
 
-  function renderBikeHeaders(svg) {
+  // A bike's name (wrapped to the width of its bar) and its built periods. A built period is one line
+  // ("2002–2007 · 5.3 y": years only, but the duration from the full dates) when it fits the column (bar plus the gap to the next bike),
+  // otherwise the duration goes on a line of its own.
+  function bikeHeaderLines(bike, columnWidth) {
+    const maxCharactersPerLine = Math.floor(bike.barWidth / BIKE_NAME_AVERAGE_CHARACTER_WIDTH);
+    const nameLines = wrapTextIntoLines(displayNameOf(bike, BIKE_TYPES_BY_KEY), maxCharactersPerLine, BIKE_NAME_MAX_LINES);
+    const builtPeriodLines = bike.builtPeriods.flatMap(period => {
+      const dates = formatPeriodYears(period);
+      const duration = formatDuration(period.endTimestamp - period.startTimestamp);
+      const oneLine = `${dates} · ${duration}`;
+      return measureLabelWidth(oneLine, BUILT_PERIOD_FONT_SIZE) <= columnWidth ? [oneLine] : [dates, duration];
+    });
+    return { nameLines, builtPeriodLines };
+  }
+
+  function renderBikeHeaders(svg, bikeTypeGroups, headerLinesByBikeId, headerBottomY) {
     const headerLayer = createSvgElement('g', {}, svg);
-    for (const group of timelineModel.bikeTypeGroups) {
+    for (const group of bikeTypeGroups) {
       const typeLabel = createSvgElement('text', { class: 'bike-type-label', x: group.leftX, y: 18 }, headerLayer);
       typeLabel.textContent = group.label;
       createSvgElement('line', { class: 'bike-type-rule', x1: group.leftX, x2: group.rightX, y1: 26, y2: 26 }, headerLayer);
@@ -623,15 +667,23 @@
       for (const bike of group.bikes) {
         const bikeHeader = createSvgElement('g', { class: 'bike-header', 'data-bike-id': bike.id }, headerLayer);
         // transparent rect = larger hover target
-        createSvgElement('rect', { x: bike.barLeftX - 4, y: 30, width: bike.barWidth + 8, height: HEADER_HEIGHT - 26, fill: 'transparent' }, bikeHeader);
+        createSvgElement('rect', { x: bike.barLeftX - 4, y: 30, width: bike.barWidth + 8, height: headerBottomY - 26, fill: 'transparent' }, bikeHeader);
 
-        const maxCharactersPerLine = Math.floor(bike.barWidth / BIKE_NAME_AVERAGE_CHARACTER_WIDTH);
-        const nameLines = wrapTextIntoLines(displayNameOf(bike, BIKE_TYPES_BY_KEY), maxCharactersPerLine, BIKE_NAME_MAX_LINES);
+        const { nameLines, builtPeriodLines } = headerLinesByBikeId[bike.id];
         nameLines.forEach((line, lineIndex) => {
-          const nameText = createSvgElement('text', { class: 'bike-name', x: bike.barLeftX, y: 46 + lineIndex * 14 }, bikeHeader);
+          const nameText = createSvgElement('text', { class: 'bike-name', x: bike.barLeftX, y: BIKE_NAME_FIRST_LINE_Y + lineIndex * BIKE_NAME_LINE_HEIGHT }, bikeHeader);
           nameText.textContent = line;
         });
-
+        // Built periods, aligned to the bottom of the header
+        const lastBuiltPeriodY = headerBottomY - BUILT_PERIODS_BOTTOM_PADDING;
+        builtPeriodLines.forEach((line, lineIndex) => {
+          const periodText = createSvgElement('text', {
+            class: 'bike-built-period', x: bike.barLeftX,
+            y: lastBuiltPeriodY - (builtPeriodLines.length - 1 - lineIndex) * BUILT_PERIOD_LINE_HEIGHT,
+            style: `font-size: ${BUILT_PERIOD_FONT_SIZE}px`,
+          }, bikeHeader);
+          periodText.textContent = line;
+        });
 
         bikeHeader.addEventListener('pointerenter', event => showBikeTooltip(bike, event));
         bikeHeader.addEventListener('pointermove', positionTooltip);
@@ -694,8 +746,12 @@
     return departureDots;
   }
 
+  // Each strip also gets its part's description written along it, reading upwards. The descriptions
+  // are hidden on screen and shown in print, or with the print-view class on <html> (see styles.css);
+  // a long one is shortened with "…".
   function renderPartSegments(svg, timestampToY) {
     const segmentLayer = createSvgElement('g', {}, svg);
+    const labelLayer = createSvgElement('g', { class: 'part-labels' });
     for (const part of timelineModel.parts) {
       for (const mounting of part.mountings) {
         const bike = timelineModel.bikesById[mounting.bikeId];
@@ -703,15 +759,46 @@
         // 1px inset at each end leaves a visible gap between a part and its replacement
         const topY = timestampToY(mounting.endTimestamp) + 1;
         const bottomY = timestampToY(mounting.startTimestamp) - 1;
+        const laneLeftX = bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[mounting.laneIndex];
         const segment = createSvgElement('rect', {
           class: 'part-segment', 'data-part-id': part.id, 'data-bike-id': bike.id,
-          x: bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[mounting.laneIndex], y: topY,
+          x: laneLeftX, y: topY,
           width: LANE_WIDTH, height: Math.max(1.5, bottomY - topY), rx: LANE_WIDTH / 2, // fully round ends
-          fill: `var(--part-group-${part.partGroup})`,
+          style: `--part-color: var(--part-group-${part.partGroup})`,
         }, segmentLayer);
         attachPartHoverHandlers(segment, part);
+
+        const labelText = fitTextIntoLength(part.description, PART_LABEL_FONT_SIZE, bottomY - topY - 2 * PART_LABEL_END_PADDING);
+        if (!labelText) continue;
+        // Rotated -90°: the text reads bottom to top and its glyphs extend to the left of the baseline.
+        const baselineX = laneLeftX + LANE_WIDTH / 2 + PART_LABEL_FONT_SIZE * 0.36;
+        const label = createSvgElement('text', {
+          class: 'part-label', 'data-part-id': part.id, style: `font-size: ${PART_LABEL_FONT_SIZE}px`,
+          transform: `translate(${baselineX.toFixed(2)},${(bottomY - PART_LABEL_END_PADDING).toFixed(2)}) rotate(-90)`,
+        }, labelLayer);
+        label.textContent = labelText;
       }
     }
+    return labelLayer;
+  }
+
+  // Width of a part label in the chart's font, for shortening it to fit its strip.
+  const textMeasuringContext = document.createElement('canvas').getContext('2d');
+  function measureLabelWidth(text, fontSize) {
+    textMeasuringContext.font = `${fontSize}px ${getComputedStyle(document.querySelector('.viz-root')).fontFamily}`;
+    return textMeasuringContext.measureText(text).width;
+  }
+
+  // Fits text into maxLength at the given font size, shortening it with "…" if needed.
+  // Returns null when not even a few characters fit.
+  function fitTextIntoLength(text, fontSize, maxLength) {
+    if (measureLabelWidth(text, fontSize) <= maxLength) return text;
+    let shortened = text;
+    while (shortened.length > 3 && measureLabelWidth(shortened.trimEnd() + '…', fontSize) > maxLength) {
+      shortened = shortened.slice(0, -1);
+    }
+    if (shortened.length <= 3) return null;
+    return shortened.trimEnd() + '…';
   }
 
   // A dot in a darker shade of the strip's colour where a ribbon leaves the strip.
@@ -838,307 +925,6 @@
   }
 
   // =====================================================================
-  // Print poster (A2 landscape): every part's description written along its strip
-  // =====================================================================
-
-  const MILLIMETERS_TO_PIXELS = 96 / 25.4;
-  const POSTER_PRINTABLE_WIDTH_MM = 574;   // A2 landscape 594mm minus 2 × 10mm page margin
-  const POSTER_PRINTABLE_HEIGHT_MM = 399;  // 420mm minus margins, 1mm spare so it never spills onto a second page
-  const POSTER_FONT_FAMILY = 'Helvetica, Arial, sans-serif';
-  const POSTER_COLORS = {
-    page: '#ffffff', builtBar: '#ecebe7', builtBarBorder: '#2f2e2c', gridline: '#e4e3df', axisLine: '#c9c8c2',
-    textPrimary: '#0b0b0b', textSecondary: '#52514e', textMuted: '#7a7974',
-  };
-  // Light-mode part group colours (same as the screen palette)
-  const POSTER_PART_GROUP_COLORS = {
-    chassis: '#446cb4', wheels: '#c38b27', brakes: '#268d81', cockpit: '#8061b0', drivetrain: '#bb566e', seat: '#729343',
-  };
-  const POSTER_LABEL_TINT_STRENGTH = 0.3; // part strip fill = this much group colour mixed into white
-  const POSTER_TITLE_BAND_HEIGHT = 66;
-  const POSTER_YEAR_AXIS_WIDTH = 40;
-  const POSTER_GAP_BETWEEN_BIKES = 14;
-  const POSTER_GAP_BETWEEN_BIKE_TYPES = 30;
-  const POSTER_LANE_GAP = 0.75;
-  const POSTER_PART_GROUP_GAP = 2;
-  const POSTER_BAR_INNER_PADDING = 2;
-  const POSTER_BIKE_NAME_FONT_SIZE = 13;
-  const POSTER_BIKE_NAME_LINE_HEIGHT = 15;
-  const POSTER_BIKE_DETAIL_FONT_SIZE = 9.5;
-  const POSTER_BIKE_DETAIL_LINE_HEIGHT = 12;
-
-  const textMeasuringContext = document.createElement('canvas').getContext('2d');
-  function measureTextWidth(text, fontSize, fontWeight = 400) {
-    textMeasuringContext.font = `${fontWeight} ${fontSize}px ${POSTER_FONT_FAMILY}`;
-    return textMeasuringContext.measureText(text).width;
-  }
-
-  // Fit text into maxLength at the given font size, shortening it with "…" if needed.
-  // Returns null when not even a few characters fit.
-  function fitTextIntoLength(text, fontSize, maxLength) {
-    if (measureTextWidth(text, fontSize) <= maxLength) return text;
-    let shortened = text;
-    while (shortened.length > 3 && measureTextWidth(shortened.trimEnd() + '…', fontSize) > maxLength) {
-      shortened = shortened.slice(0, -1);
-    }
-    if (shortened.length <= 3) return null;
-    return shortened.trimEnd() + '…';
-  }
-
-  function wrapTextByWidth(text, fontSize, fontWeight, maxWidth, maxLines) {
-    const lines = [];
-    let currentLine = '';
-    for (const word of text.split(/\s+/)) {
-      const candidate = (currentLine + ' ' + word).trim();
-      if (measureTextWidth(candidate, fontSize, fontWeight) <= maxWidth) currentLine = candidate;
-      else { if (currentLine) lines.push(currentLine); currentLine = word; }
-    }
-    if (currentLine) lines.push(currentLine);
-    if (lines.length > maxLines) {
-      lines.length = maxLines;
-      let lastLine = lines[maxLines - 1];
-      while (lastLine.length > 1 && measureTextWidth(lastLine + '…', fontSize, fontWeight) > maxWidth) lastLine = lastLine.slice(0, -1);
-      lines[maxLines - 1] = lastLine + '…';
-    }
-    return lines;
-  }
-
-  function renderPoster() {
-    const posterContainer = document.getElementById('print-poster');
-    posterContainer.innerHTML = '';
-
-    const posterWidth = POSTER_PRINTABLE_WIDTH_MM * MILLIMETERS_TO_PIXELS;
-    const posterHeight = POSTER_PRINTABLE_HEIGHT_MM * MILLIMETERS_TO_PIXELS;
-    const svg = createSvgElement('svg', {
-      width: `${POSTER_PRINTABLE_WIDTH_MM}mm`, height: `${POSTER_PRINTABLE_HEIGHT_MM}mm`,
-      viewBox: `0 0 ${posterWidth} ${posterHeight}`, 'font-family': POSTER_FONT_FAMILY,
-    }, posterContainer);
-    createSvgElement('rect', { x: 0, y: 0, width: posterWidth, height: posterHeight, fill: POSTER_COLORS.page }, svg);
-    const addText = (parent, content, attributes) => {
-      const textElement = createSvgElement('text', attributes, parent);
-      textElement.textContent = content;
-      return textElement;
-    };
-
-    renderPosterTitleBand(svg, posterWidth, addText);
-
-    // ----- columns: one lane width for all bikes, chosen so every bar fits the page -----
-    // A bar's width is a fixed part (padding and gaps) plus its number of lanes × lane width,
-    // so the lane width that fills the page can be solved for directly.
-    const placedGroups = timelineModel.bikeTypeGroups;
-    const placedBikes = placedGroups.flatMap(group => group.bikes);
-    const totalGapWidth = (placedBikes.length - placedGroups.length) * POSTER_GAP_BETWEEN_BIKES
-      + (placedGroups.length - 1) * POSTER_GAP_BETWEEN_BIKE_TYPES;
-    const availableBarsWidth = posterWidth - POSTER_YEAR_AXIS_WIDTH - 12 - totalGapWidth;
-    const posterLaneSpacing = { laneGap: POSTER_LANE_GAP, partGroupGap: POSTER_PART_GROUP_GAP, barInnerPadding: POSTER_BAR_INNER_PADDING };
-    const fixedBarWidthOf = bike => computeLaneLayout(BIKE_TYPES_BY_KEY[bike.type], { ...posterLaneSpacing, laneWidth: 0 }).barWidth;
-    const laneCountOf = bike => BIKE_TYPES_BY_KEY[bike.type].lanePartTypes.length;
-    const laneWidth = (availableBarsWidth - placedBikes.reduce((total, bike) => total + fixedBarWidthOf(bike), 0))
-      / placedBikes.reduce((total, bike) => total + laneCountOf(bike), 0);
-    const posterLaneLayoutByBikeType = Object.fromEntries(
-      BIKE_TYPES.map(bikeType => [bikeType.type, computeLaneLayout(bikeType, { ...posterLaneSpacing, laneWidth })]));
-    const barWidthOf = bikeId => posterLaneLayoutByBikeType[timelineModel.bikesById[bikeId].type].barWidth;
-    const laneOffsetX = (bikeId, laneIndex) => posterLaneLayoutByBikeType[timelineModel.bikesById[bikeId].type].laneOffsetsX[laneIndex];
-
-    const { barLeftXByBikeId, xRangeByGroup } = layoutBikeColumns(
-      POSTER_YEAR_AXIS_WIDTH + 8, POSTER_GAP_BETWEEN_BIKES, POSTER_GAP_BETWEEN_BIKE_TYPES, bike => barWidthOf(bike.id));
-
-    // ----- bike headers: name, built periods -----
-    // A built period is one line ("03.2002–06.2007 · 5.3 y") when it fits the column (bar plus the
-    // gap to the next bike), otherwise the duration goes on a line of its own.
-    const builtPeriodLinesOf = (period, maxWidth) => {
-      const dates = formatPeriodDates(period);
-      const duration = formatDuration(period.endTimestamp - period.startTimestamp);
-      const oneLine = `${dates} · ${duration}`;
-      return measureTextWidth(oneLine, POSTER_BIKE_DETAIL_FONT_SIZE) <= maxWidth ? [oneLine] : [dates, duration];
-    };
-    const headerLinesByBikeId = {};
-    for (const group of placedGroups) {
-      group.bikes.forEach((bike, bikeIndex) => {
-        const isLastBike = bikeIndex === group.bikes.length - 1;
-        const columnWidth = barWidthOf(bike.id)
-          + (isLastBike ? (group === placedGroups.at(-1) ? 0 : POSTER_GAP_BETWEEN_BIKE_TYPES) : POSTER_GAP_BETWEEN_BIKES) - 6;
-        headerLinesByBikeId[bike.id] = {
-          nameLines: wrapTextByWidth(displayNameOf(bike, BIKE_TYPES_BY_KEY), POSTER_BIKE_NAME_FONT_SIZE, 700, columnWidth, 2),
-          builtPeriodLines: bike.builtPeriods.flatMap(period => builtPeriodLinesOf(period, columnWidth)),
-        };
-      });
-    }
-    const tallestHeaderContent = Math.max(...Object.values(headerLinesByBikeId).map(lines =>
-      lines.nameLines.length * POSTER_BIKE_NAME_LINE_HEIGHT + lines.builtPeriodLines.length * POSTER_BIKE_DETAIL_LINE_HEIGHT));
-    const headerTopY = POSTER_TITLE_BAND_HEIGHT;
-    const plotTopY = headerTopY + 30 + tallestHeaderContent + 10;
-    const plotBottomY = posterHeight - 16;
-
-    const headerLayer = createSvgElement('g', {}, svg);
-    for (const group of placedGroups) {
-      const { leftX: groupLeftX, rightX: groupRightX } = xRangeByGroup.get(group);
-      addText(headerLayer, group.label, { x: groupLeftX, y: headerTopY + 12, 'font-size': 13, 'font-weight': 700, 'letter-spacing': '0.06em', fill: POSTER_COLORS.textPrimary });
-      createSvgElement('line', { x1: groupLeftX, x2: groupRightX, y1: headerTopY + 19, y2: headerTopY + 19, stroke: POSTER_COLORS.axisLine }, headerLayer);
-      for (const bike of group.bikes) {
-        const barLeftX = barLeftXByBikeId[bike.id];
-        const { nameLines, builtPeriodLines } = headerLinesByBikeId[bike.id];
-        let lineY = headerTopY + 36;
-        for (const nameLine of nameLines) {
-          addText(headerLayer, nameLine, { x: barLeftX, y: lineY, 'font-size': POSTER_BIKE_NAME_FONT_SIZE, 'font-weight': 700, fill: POSTER_COLORS.textPrimary });
-          lineY += POSTER_BIKE_NAME_LINE_HEIGHT;
-        }
-        lineY -= POSTER_BIKE_DETAIL_LINE_HEIGHT + 1; // first built period sits right under the name
-        for (const builtPeriodLine of builtPeriodLines) {
-          lineY += POSTER_BIKE_DETAIL_LINE_HEIGHT;
-          addText(headerLayer, builtPeriodLine, { x: barLeftX, y: lineY, 'font-size': POSTER_BIKE_DETAIL_FONT_SIZE, fill: POSTER_COLORS.textSecondary, 'font-variant-numeric': 'tabular-nums' });
-        }
-      }
-    }
-
-    // ----- time scale -----
-    const timelineStartTimestamp = Date.UTC(timelineModel.earliestYear, 0, 1);
-    const timelineEndTimestamp = Date.UTC(CURRENT_YEAR + 1, 0, 1);
-    const posterPixelsPerYear = (plotBottomY - plotTopY) / ((timelineEndTimestamp - timelineStartTimestamp) / MILLISECONDS_PER_YEAR);
-    const timestampToY = timestamp => plotTopY + (timelineEndTimestamp - timestamp) / MILLISECONDS_PER_YEAR * posterPixelsPerYear;
-
-    const gridLayer = createSvgElement('g', {}, svg);
-    for (let year = timelineModel.earliestYear; year <= CURRENT_YEAR + 1; year++) {
-      const yearStartY = timestampToY(Date.UTC(year, 0, 1));
-      createSvgElement('line', { x1: POSTER_YEAR_AXIS_WIDTH, x2: posterWidth, y1: yearStartY, y2: yearStartY, stroke: POSTER_COLORS.gridline, 'stroke-width': 0.75 }, gridLayer);
-      if (year <= CURRENT_YEAR) {
-        addText(gridLayer, year, { x: POSTER_YEAR_AXIS_WIDTH - 6, y: timestampToY(Date.UTC(year, 6, 1)) + 4, 'text-anchor': 'end', 'font-size': 11, fill: POSTER_COLORS.textMuted });
-      }
-    }
-    const todayY = timestampToY(TODAY_TIMESTAMP);
-    createSvgElement('line', { x1: POSTER_YEAR_AXIS_WIDTH, x2: posterWidth, y1: todayY, y2: todayY, stroke: POSTER_COLORS.textMuted, 'stroke-dasharray': '3 3', 'stroke-width': 0.75 }, gridLayer);
-    addText(gridLayer, 'today', { x: POSTER_YEAR_AXIS_WIDTH - 6, y: todayY + 3, 'text-anchor': 'end', 'font-size': 9, fill: POSTER_COLORS.textMuted });
-
-    // ----- built bars -----
-    const barLayer = createSvgElement('g', {}, svg);
-    for (const bike of timelineModel.bikes) {
-      const barLeftX = barLeftXByBikeId[bike.id];
-      if (barLeftX == null) continue;
-      for (const period of bike.builtPeriods) {
-        const topY = timestampToY(period.endTimestamp);
-        createSvgElement('rect', { x: barLeftX, y: topY, width: barWidthOf(bike.id), height: Math.max(2, timestampToY(period.startTimestamp) - topY), rx: 3, fill: POSTER_COLORS.builtBar, stroke: POSTER_COLORS.builtBarBorder, 'stroke-width': 1 }, barLayer);
-      }
-    }
-
-    // ----- ribbons (see computeTransferRibbons) and same-bike storage links -----
-    const laneCenterX = (bikeId, laneIndex) =>
-      barLeftXByBikeId[bikeId] == null ? null : barLeftXByBikeId[bikeId] + laneOffsetX(bikeId, laneIndex) + laneWidth / 2;
-    const ribbonLayer = createSvgElement('g', {}, svg);
-    for (const part of timelineModel.parts) {
-      for (let index = 0; index < part.mountings.length - 1; index++) {
-        const previousMounting = part.mountings[index];
-        const nextMounting = part.mountings[index + 1];
-        if (previousMounting.bikeId !== nextMounting.bikeId) continue;
-        const linkX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
-        if (linkX == null) continue;
-        createSvgElement('line', {
-          x1: linkX, x2: linkX, y1: timestampToY(previousMounting.endTimestamp), y2: timestampToY(nextMounting.startTimestamp),
-          stroke: POSTER_PART_GROUP_COLORS[part.partGroup], 'stroke-width': 1.5, 'stroke-dasharray': '2 3',
-        }, ribbonLayer);
-      }
-    }
-    const posterRibbonWidth = laneWidth * 0.8;
-    const { ribbons, departureDots } = computeTransferRibbons({
-      laneCenterX, timestampToY, trackSpacing: posterRibbonWidth + RIBBON_TRACK_GAP, ribbonWidth: posterRibbonWidth, connectorGapSize: CONNECTOR_GAP_SIZE,
-    });
-    for (const transfer of ribbons) {
-      createSvgElement('path', {
-        d: transfer.pathData, fill: 'none', stroke: POSTER_PART_GROUP_COLORS[transfer.part.partGroup],
-        'stroke-opacity': 0.3, 'stroke-width': posterRibbonWidth, 'stroke-linejoin': 'miter', 'stroke-linecap': 'butt',
-      }, ribbonLayer);
-    }
-
-    // Departure dots by part, so a strip's label can stop before the dots on it
-    const departureDotRadius = posterRibbonWidth / 2;
-    const departureDotsByPartId = new Map();
-    for (const dot of departureDots) {
-      if (!departureDotsByPartId.has(dot.part.id)) departureDotsByPartId.set(dot.part.id, []);
-      departureDotsByPartId.get(dot.part.id).push(dot);
-    }
-
-    // ----- part strips with their descriptions written along them -----
-    // A strip is as wide as a ribbon and a departure dot, centred in its lane. Every label uses the
-    // same font size, the one that fits across a strip; a label that is too long is shortened with "…".
-    const stripWidth = posterRibbonWidth;
-    const labelFontSize = Math.min(8.5, stripWidth * 0.95);
-    const segmentLayer = createSvgElement('g', {}, svg);
-    for (const part of timelineModel.parts) {
-      const partColor = POSTER_PART_GROUP_COLORS[part.partGroup];
-      const tintColor = mixWithWhite(partColor, POSTER_LABEL_TINT_STRENGTH);
-      for (const mounting of part.mountings) {
-        const barLeftX = barLeftXByBikeId[mounting.bikeId];
-        if (barLeftX == null) continue;
-        const laneLeftX = barLeftX + laneOffsetX(mounting.bikeId, mounting.laneIndex);
-        const laneCenter = laneLeftX + laneWidth / 2;
-        const topY = timestampToY(mounting.endTimestamp) + 1;
-        const bottomY = timestampToY(mounting.startTimestamp) - 1;
-        const stripHeight = Math.max(1.5, bottomY - topY);
-        createSvgElement('rect', {
-          x: laneCenter - stripWidth / 2, y: topY, width: stripWidth, height: stripHeight, rx: stripWidth / 2, // fully round ends
-          fill: tintColor,
-        }, segmentLayer);
-
-        // The label reads upwards and never runs through a departure dot: it goes in the longer free
-        // stretch of the strip, below the lowest dot or above the highest one.
-        const dotYsOnStrip = (departureDotsByPartId.get(part.id) || [])
-          .filter(dot => Math.abs(dot.x - laneCenter) < 0.5 && dot.y >= topY && dot.y <= bottomY)
-          .map(dot => dot.y);
-        let labelTopY = topY;
-        let labelBottomY = bottomY;
-        if (dotYsOnStrip.length) {
-          const belowDotsTopY = Math.max(...dotYsOnStrip) + departureDotRadius + 1;
-          const aboveDotsBottomY = Math.min(...dotYsOnStrip) - departureDotRadius - 1;
-          if (bottomY - belowDotsTopY >= aboveDotsBottomY - topY) labelTopY = belowDotsTopY;
-          else labelBottomY = aboveDotsBottomY;
-        }
-        const labelText = fitTextIntoLength(part.description, labelFontSize, labelBottomY - labelTopY - 4);
-        if (!labelText) continue;
-        // Rotated -90°: text reads bottom-to-top, glyphs extend to the left of the baseline.
-        const baselineX = laneCenter + labelFontSize * 0.36;
-        const labelStartY = labelBottomY - 2;
-        addText(segmentLayer, labelText, {
-          transform: `translate(${baselineX.toFixed(2)},${labelStartY.toFixed(2)}) rotate(-90)`,
-          'font-size': labelFontSize.toFixed(2), fill: POSTER_COLORS.textPrimary,
-        });
-      }
-    }
-
-    // ----- departure dots of all ribbons, on top of the strips -----
-    // The poster's strips are pale tints, so the dot uses the full group colour (one step darker than
-    // the strip, like the screen's darker dot on a full-colour strip), and it is only as wide as the ribbon.
-    for (const dot of departureDots) {
-      createSvgElement('circle', {
-        cx: dot.x, cy: dot.y, r: departureDotRadius, fill: POSTER_PART_GROUP_COLORS[dot.part.partGroup],
-      }, segmentLayer);
-    }
-  }
-
-  function renderPosterTitleBand(svg, posterWidth, addText) {
-    addText(svg, 'Bike timeline', { x: 0, y: 26, 'font-size': 26, 'font-weight': 700, fill: POSTER_COLORS.textPrimary });
-    addText(svg,
-      `As of ${formatMonthYear(TODAY_TIMESTAMP)} · ${timelineModel.bikes.length} bikes · ${timelineModel.parts.length} parts`,
-      { x: 0, y: 46, 'font-size': 11, fill: POSTER_COLORS.textSecondary });
-
-    // Legend, right-aligned: part groups
-    const legendFontSize = 11;
-    const legendRowY = 24;
-    const legendItems = Object.entries(PART_GROUPS)
-      .map(([groupKey, group]) => ({ groupKey, label: group.label, description: group.partTypesDescription }));
-    const itemWidth = item => 14 + measureTextWidth(item.label, legendFontSize, 700)
-      + 4 + measureTextWidth(item.description, legendFontSize) + 16;
-    let itemX = posterWidth - legendItems.reduce((total, item) => total + itemWidth(item), 0) + 16;
-    for (const item of legendItems) {
-      const legendItem = createSvgElement('g', {}, svg);
-      createSvgElement('rect', { x: itemX, y: legendRowY - 9, width: 10, height: 10, rx: 2, fill: POSTER_PART_GROUP_COLORS[item.groupKey] }, legendItem);
-      const labelElement = addText(legendItem, '', { x: itemX + 14, y: legendRowY, 'font-size': legendFontSize, fill: POSTER_COLORS.textSecondary });
-      const boldLabel = createSvgElement('tspan', { 'font-weight': 700, fill: POSTER_COLORS.textPrimary }, labelElement);
-      boldLabel.textContent = item.label;
-      const description = createSvgElement('tspan', { dx: 4 }, labelElement);
-      description.textContent = item.description;
-      itemX += itemWidth(item);
-    }
-  }
-
-  // =====================================================================
   // Summary legends and table view
   // =====================================================================
 
@@ -1150,8 +936,37 @@
       .join('');
 
 
+    renderBikeToggles();
     renderPartsTable();
   }
+
+  // One checkbox per bike, grouped by bike type: an unchecked bike is not drawn (on screen or in print).
+  // Clicking a group's name checks all its bikes, or unchecks them all if they're all checked.
+  function renderBikeToggles() {
+    const bikeToggles = document.getElementById('bike-toggles');
+    bikeToggles.innerHTML = timelineModel.bikeTypeGroups.map(group => `<div class="bike-toggle-group">
+        <button type="button" class="bike-toggle-group-name" title="Show or hide all ${escapeHtml(group.name)} bikes">${escapeHtml(group.label)}</button>
+        ${group.bikes.map(bike => `<label><input type="checkbox" value="${escapeHtml(bike.id)}"${hiddenBikeIds.has(bike.id) ? '' : ' checked'}>${escapeHtml(displayNameOf(bike, BIKE_TYPES_BY_KEY))}</label>`).join('')}
+      </div>`).join('');
+  }
+  document.getElementById('bike-toggles').addEventListener('click', event => {
+    const groupNameButton = event.target.closest('.bike-toggle-group-name');
+    if (!groupNameButton) return;
+    const groupCheckboxes = [...groupNameButton.parentElement.querySelectorAll('input[type=checkbox]')];
+    const showAll = groupCheckboxes.some(checkbox => !checkbox.checked);
+    for (const checkbox of groupCheckboxes) {
+      checkbox.checked = showAll;
+      if (showAll) hiddenBikeIds.delete(checkbox.value);
+      else hiddenBikeIds.add(checkbox.value);
+    }
+    renderChart();
+  });
+  document.getElementById('bike-toggles').addEventListener('change', event => {
+    const checkbox = event.target;
+    if (checkbox.checked) hiddenBikeIds.delete(checkbox.value);
+    else hiddenBikeIds.add(checkbox.value);
+    renderChart();
+  });
 
   function renderPartsTable() {
     const firstLaneIndexOfType = partType => LANE_DEFINITIONS.findIndex(lane => lane.partType === partType);
@@ -1268,12 +1083,6 @@
     loadData(rawData);
   });
 
-  document.getElementById('print-poster-button').addEventListener('click', () => {
-    renderPoster();
-    window.print();
-  });
-  // Also covers printing via the browser menu or Ctrl/Cmd+P
-  window.addEventListener('beforeprint', renderPoster);
 
   // The page starts with the test data (see README.md), which shows the cases the timeline can draw.
   // Use "Load JSON…" to show your own data.

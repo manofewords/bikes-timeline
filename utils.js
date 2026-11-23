@@ -1,4 +1,4 @@
-// Small helpers with no state of their own: dates, text and colours.
+// Small helpers with no state of their own: dates and text.
 // Loaded with a plain <script> tag before timeline.js (and by test.html), so everything here is global.
 
 // =====================================================================
@@ -32,6 +32,14 @@ const formatMonthYear = timestamp => {
 const formatPeriodDates = (period, separator = '–') => {
   const end = period.endTimestamp === TODAY_TIMESTAMP ? 'now' : formatMonthYear(period.endTimestamp);
   return `${formatMonthYear(period.startTimestamp)}${separator}${end}`;
+};
+// A period as years only ("2002–2007"), for the chart's bike headers; an ongoing period ends in "now",
+// and a period within one year is just that year.
+const formatPeriodYears = period => {
+  const startYear = new Date(period.startTimestamp).getUTCFullYear();
+  if (period.endTimestamp === TODAY_TIMESTAMP) return `${startYear}–now`;
+  const endYear = new Date(period.endTimestamp).getUTCFullYear();
+  return startYear === endYear ? `${startYear}` : `${startYear}–${endYear}`;
 };
 // A duration in years with one decimal ("5.3 y"), or in months under a year ("4 mo", at least 1).
 const formatDuration = durationMs => {
@@ -67,14 +75,3 @@ function wrapTextIntoLines(text, maxCharactersPerLine, maxLines) {
 // The bike's name, or its type label and number (e.g. "MTB 2") when it has none.
 // bikeTypesByKey maps a bike type ("mtb") to its entry in BIKE_TYPES.
 const displayNameOf = (bike, bikeTypesByKey) => bike.name || `${bikeTypesByKey[bike.type].label} ${bike.numberWithinType}`;
-
-// =====================================================================
-// Colours
-// =====================================================================
-
-// "#rrggbb" mixed into white: strength 1 is the colour itself, 0 is white.
-function mixWithWhite(hexColor, strength) {
-  const channels = [1, 3, 5].map(offset => parseInt(hexColor.slice(offset, offset + 2), 16));
-  const mixed = channels.map(channel => Math.round(255 + (channel - 255) * strength));
-  return '#' + mixed.map(channel => channel.toString(16).padStart(2, '0')).join('');
-}

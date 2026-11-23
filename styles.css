@@ -17,7 +17,8 @@
   --part-group-seat: #729343;
   --error-text: #b42318;
 }
-@media (prefers-color-scheme: dark) {
+/* Dark theme on screen only: print always uses the light theme. */
+@media screen and (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) .viz-root {
     color-scheme: dark;
     --surface-page: #111110;
@@ -38,24 +39,26 @@
     --error-text: #f97066;
   }
 }
-:root[data-theme="dark"] .viz-root {
-  color-scheme: dark;
-  --surface-page: #111110;
-  --surface-card: #1a1a19;
-  --built-bar-fill: #2a2a28;
-  --built-bar-border: #d6d5ce;
-  --gridline: #2c2c2a;
-  --axis-line: #4a4a46;
-  --text-primary: #f0efec;
-  --text-secondary: #c3c2b7;
-  --text-muted: #8f8e86;
-  --part-group-chassis: #5e86ce;
-  --part-group-wheels: #dda440;
-  --part-group-brakes: #3fa79a;
-  --part-group-cockpit: #997bca;
-  --part-group-drivetrain: #d57087;
-  --part-group-seat: #8cac5c;
-  --error-text: #f97066;
+@media screen {
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-page: #111110;
+    --surface-card: #1a1a19;
+    --built-bar-fill: #2a2a28;
+    --built-bar-border: #d6d5ce;
+    --gridline: #2c2c2a;
+    --axis-line: #4a4a46;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --part-group-chassis: #5e86ce;
+    --part-group-wheels: #dda440;
+    --part-group-brakes: #3fa79a;
+    --part-group-cockpit: #997bca;
+    --part-group-drivetrain: #d57087;
+    --part-group-seat: #8cac5c;
+    --error-text: #f97066;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -104,6 +107,14 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .color-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 .part-group-legend-name { color: var(--text-primary); font-weight: 550; margin-right: 4px; }
 
+.bike-toggles { display: flex; flex-wrap: wrap; gap: 6px 24px; font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; }
+.bike-toggle-group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.bike-toggle-group-name { font: inherit; color: var(--text-primary); font-weight: 650; letter-spacing: 0.06em;
+  background: none; border: 0; padding: 0; cursor: pointer; }
+.bike-toggle-group-name:hover { text-decoration: underline; }
+.bike-toggles label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.bike-toggles input { margin: 0; accent-color: var(--text-primary); }
+
 .chart-container { background: var(--surface-card); border-radius: 12px; overflow: auto; max-height: calc(100vh - 80px); position: relative; }
 .chart-container > svg { display: block; }
 .controls svg, .tooltip svg { display: inline-block; }
@@ -118,6 +129,9 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .bike-name { fill: var(--text-primary); font-size: 12px; font-weight: 600; }
 .bike-header { cursor: default; }
 .bike-header:hover .bike-name { text-decoration: underline; }
+.part-segment { fill: var(--part-color); }
+.part-label { display: none; }
+.chart-container svg .bike-built-period { fill: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .part-segment, .part-departure-dot { cursor: pointer; transition: opacity .12s; }
 .part-ribbon { fill: none; stroke-linejoin: miter; stroke-linecap: butt; stroke-opacity: .32; transition: stroke-opacity .12s, opacity .12s; pointer-events: stroke; cursor: pointer; }
 .storage-link { fill: none; stroke-width: 1.5; stroke-dasharray: 2 3; opacity: .7; }
@@ -148,13 +162,18 @@ summary { cursor: pointer; font-weight: 600; }
 .data-errors ul { margin: 6px 0 0; padding-left: 18px; max-height: 220px; overflow: auto; }
 .data-errors li { padding: 1px 0; }
 
-/* ---------- print: A2 landscape poster ---------- */
-#print-poster { display: none; }
-@page { size: 594mm 420mm; margin: 10mm; }
+/* ---------- print: the same chart in the light theme, with each part's description in its lane ---------- */
+/* The class print-view on <html> shows the chart as it prints (used by the visual test). */
+.print-view .part-label { display: inline; }
+.print-view .chart-container { background: #fff; }
+.chart-container .part-label { fill: #fff; pointer-events: none; }
+@page { margin: 10mm; }
 @media print {
-  html, body { background: #fff; }
-  .viz-root { padding: 0; min-height: 0; background: #fff; }
-  .viz-root > :not(#print-poster) { display: none !important; }
-  #print-poster { display: block; overflow: hidden; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  #print-poster svg { display: block; }
+  /* one page of any size: the chart takes the height left under the title and legend and is scaled to fit it */
+  .viz-root { display: flex; flex-direction: column; height: 100vh; min-height: 0; padding: 0; background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .controls, .bike-toggles, .data-errors, #parts-table-details, .tooltip, .settings-dialog { display: none !important; }
+  .chart-container { flex: 1; min-height: 0; overflow: hidden; max-height: none; border-radius: 0; background: #fff; }
+  .chart-container > svg { width: 100%; height: 100%; } /* keeps its proportions: preserveAspectRatio in timeline.js */
+  .part-label { display: inline; }
 }
