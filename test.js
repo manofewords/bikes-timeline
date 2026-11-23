@@ -106,6 +106,21 @@ test('displayNameOf: the name, or the type label and number', () => {
   assertEqual(displayNameOf({ type: 'mtb', name: '', numberWithinType: 2 }, bikeTypesByKey), 'MTB 2');
   assertEqual(displayNameOf({ type: 'bmx', numberWithinType: 1 }, bikeTypesByKey), 'BMX 1');
 });
+test('describePartTypes: part types joined with " · "', () => {
+  assertEqual(describePartTypes(['frame', 'shock', 'fork']), 'frame · shock · fork');
+  assertEqual(describePartTypes(['stem']), 'stem');
+  assertEqual(describePartTypes([]), '');
+});
+test('describePartTypes: front and rear pairs are named once', () => {
+  assertEqual(describePartTypes(['front rim', 'front hub', 'rear rim', 'rear hub']), 'rim · hub, front and rear');
+  assertEqual(describePartTypes(['front brake', 'front brake lever', 'front disc', 'rear brake', 'rear brake lever', 'rear disc']),
+    'brake · brake lever · disc, front and rear');
+});
+test('describePartTypes: listed in full when front and rear don\'t pair up', () => {
+  assertEqual(describePartTypes(['rear brake', 'rear brake lever']), 'rear brake · rear brake lever');
+  assertEqual(describePartTypes(['front brake', 'rear brake', 'rear disc']), 'front brake · rear brake · rear disc');
+  assertEqual(describePartTypes(['front rim', 'rear rim', 'seat']), 'front rim · rear rim · seat');
+});
 
 const summary = document.getElementById('summary');
 summary.textContent = `${passedCount} passed, ${failedCount} failed`;

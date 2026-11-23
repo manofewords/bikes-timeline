@@ -72,6 +72,18 @@ function wrapTextIntoLines(text, maxCharactersPerLine, maxLines) {
   return lines.map(line => line.length > maxCharactersPerLine ? line.slice(0, maxCharactersPerLine - 1) + '…' : line);
 }
 
+// Part types joined with " · ", in the order given. When they come in front and rear pairs only
+// ("front rim", "rear rim", …), each pair is named once and ", front and rear" is added:
+// "rim · hub, front and rear".
+function describePartTypes(partTypes) {
+  const frontPrefix = 'front ', rearPrefix = 'rear ';
+  const frontNames = partTypes.filter(partType => partType.startsWith(frontPrefix)).map(partType => partType.slice(frontPrefix.length));
+  const rearNames = partTypes.filter(partType => partType.startsWith(rearPrefix)).map(partType => partType.slice(rearPrefix.length));
+  const isFrontAndRearPairs = frontNames.length > 0 && frontNames.length + rearNames.length === partTypes.length
+    && frontNames.length === rearNames.length && frontNames.every(name => rearNames.includes(name));
+  return isFrontAndRearPairs ? `${frontNames.join(' · ')}, front and rear` : partTypes.join(' · ');
+}
+
 // The bike's name, or its type label and number (e.g. "MTB 2") when it has none.
 // bikeTypesByKey maps a bike type ("mtb") to its entry in BIKE_TYPES.
 const displayNameOf = (bike, bikeTypesByKey) => bike.name || `${bikeTypesByKey[bike.type].label} ${bike.numberWithinType}`;

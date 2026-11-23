@@ -7,12 +7,12 @@
 
   // Part groups: each has its own colour (CSS variable --part-group-<key>).
   const PART_GROUPS = {
-    chassis:    { label: 'Chassis',    partTypesDescription: 'frame · shock · fork' },
-    wheels:     { label: 'Wheels',     partTypesDescription: 'front rim · front hub · front spokes · front tire · rear rim · rear hub · rear spokes · rear tire' },
-    brakes:     { label: 'Brakes',     partTypesDescription: 'brake · lever · disc, front and rear' },
-    cockpit:    { label: 'Cockpit',    partTypesDescription: 'headset · stem · handlebars · grips' },
-    drivetrain: { label: 'Drivetrain', partTypesDescription: 'cranks · bottom bracket · pedals · sprocket · gears' },
-    seat:       { label: 'Seat',       partTypesDescription: 'seat post · seat clamp · seat' },
+    chassis:    { label: 'Chassis' },
+    wheels:     { label: 'Wheels' },
+    brakes:     { label: 'Brakes' },
+    cockpit:    { label: 'Cockpit' },
+    drivetrain: { label: 'Drivetrain' },
+    seat:       { label: 'Seat' },
   };
 
   // Every lane that exists, in the order lanes appear inside a bike bar.
@@ -552,6 +552,7 @@
   // =====================================================================
 
   function renderChart() {
+    renderPartGroupLegend();
     const chartContainer = document.getElementById('chart-container');
     chartContainer.innerHTML = '';
 
@@ -927,14 +928,24 @@
   // Summary legends and table view
   // =====================================================================
 
-  function renderSummaryAndLegends() {
+  // The legend lists only the part types that have a lane on at least one checked bike, so it follows
+  // the bike checkboxes and the build settings. A part group with none of them is left out.
+  function renderPartGroupLegend() {
+    const shownLanePartTypes = new Set(timelineModel.bikes
+      .filter(bike => !hiddenBikeIds.has(bike.id) && BIKE_TYPES_BY_KEY[bike.type])
+      .flatMap(bike => BIKE_TYPES_BY_KEY[bike.type].lanePartTypes));
     document.getElementById('part-group-legend').innerHTML = Object.entries(PART_GROUPS)
-      .map(([groupKey, group]) => `<span>
-          <span class="color-swatch" style="background:var(--part-group-${groupKey})"></span><span class="part-group-legend-name">${group.label}</span>${group.partTypesDescription}
+      .map(([groupKey, group]) => [groupKey, group, LANE_DEFINITIONS
+        .filter(lane => lane.partGroup === groupKey && shownLanePartTypes.has(lane.partType))
+        .map(lane => lane.partType)])
+      .filter(([, , groupPartTypes]) => groupPartTypes.length > 0)
+      .map(([groupKey, group, groupPartTypes]) => `<span>
+          <span class="color-swatch" style="background:var(--part-group-${groupKey})"></span><span class="part-group-legend-name">${group.label}</span>${escapeHtml(describePartTypes(groupPartTypes))}
         </span>`)
       .join('');
+  }
 
-
+  function renderSummaryAndLegends() {
     renderBikeToggles();
     renderPartsTable();
   }

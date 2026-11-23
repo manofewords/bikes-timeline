@@ -7,7 +7,7 @@ An HTML page that shows the history of my bikes and how parts moved between them
 - `index.html`: the page itself.
 - `test-bikes.json`: the test data, shown when the page opens (see [Test data](#test-data)).
 - `styles.css`: all styles, including the dark theme and the print styles.
-- `utils.js`: small helpers with no state of their own: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatPeriodYears`, `formatDuration`, …), `escapeHtml`, text wrapping, `displayNameOf` and `mixWithWhite`.
+- `utils.js`: small helpers with no state of their own: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatPeriodYears`, `formatDuration`, …), `escapeHtml`, text wrapping, `describePartTypes` (the legend's part type lists), `displayNameOf` and `mixWithWhite`.
 - `timeline.js`: everything else: configuration, validation, the model, the chart and the controls.
 - `test.html` and `test.js`: unit tests for `utils.js`. `test.html` also runs the visual tests (`visual-test.js`, with the reference images `visual-reference.png` and `visual-reference-print.png`). See [Tests](#tests).
 
@@ -21,6 +21,7 @@ The scripts are loaded with plain `<script>` tags (no modules). `utils.js` is lo
 - **Part moves**: right-angled "L" ribbons connect a part that moved from one bike to another. A dotted line marks a part that went back on the same bike after a break. See [Ribbons](#ribbons).
 - **Dates** are shown as month and year, `MM.YYYY` (for example `03.2014`), in the tooltips (data errors keep the full ISO date). A period that is still ongoing ends in "now".
 - **Interaction**: hover a part or a bike name for a tooltip and highlight, and click to pin it. A parts table is shown below the chart.
+- **Legend**: one entry per part group, in its colour, listing the part types that have a lane on at least one checked bike (front and rear pairs are named once, e.g. "rim · hub, front and rear"). It follows the bike checkboxes and the build settings, and a part group with no such part type is left out. The legend is printed too.
 - **Bike checkboxes**: one checkbox per bike, grouped by bike type, above the chart. Clicking a bike type's name checks all its bikes, or unchecks them all when they're all checked. An unchecked bike is not drawn, on screen or in print, and neither are the ribbons to and from it.
 - **Print** (Ctrl/Cmd+P): the same chart, in the same colours, on one page of whatever paper size is chosen in the print dialog, scaled to fit it. Print always uses the light theme and leaves out the zoom slider, the buttons, the bike checkboxes, the data errors and the parts table. The bike checkboxes choose which bikes are printed and the zoom sets the chart's height, so together they decide how big the chart comes out on the page. In print only, each part's description is written along its strip in white, reading upwards, in a small font (`PART_LABEL_FONT_SIZE`) and shortened with "…" when it doesn't fit. The class `print-view` on `<html>` shows the chart as it prints, on screen (the print visual test uses it).
 
