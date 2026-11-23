@@ -8,8 +8,12 @@
 const MILLISECONDS_PER_DAY = 864e5;
 const MILLISECONDS_PER_YEAR = 365.2425 * MILLISECONDS_PER_DAY;
 const MILLISECONDS_PER_MONTH = 30.44 * MILLISECONDS_PER_DAY;
-// Today at midnight UTC, the timestamp that "now" stands for.
+// Today at midnight UTC, the timestamp that "now" stands for. A "today" parameter in the page's
+// address (index.html?today=2025-09-30) draws the timeline as if it were that day; the visual
+// tests in test.html use it so the drawing doesn't change from day to day.
 const TODAY_TIMESTAMP = (() => {
+  const todayParameter = new URLSearchParams(location.search).get('today');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(todayParameter)) return Date.parse(todayParameter);
   const today = new Date();
   return Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
 })();

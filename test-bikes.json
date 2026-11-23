@@ -1,0 +1,134 @@
+{
+  "bikes": [
+    {"id": "bike-a", "type": "bmx", "name": "A"},
+    {"id": "bike-b", "type": "bmx", "name": "B"},
+    {"id": "bike-c", "type": "bmx", "name": "C, a bike with a very long name"},
+    {"id": "bike-d", "type": "commuter", "name": "D"}
+  ],
+  "parts": [
+    {"id": "a-frame", "type": "frame", "description": "A frame, stays after A is taken apart (5)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2021-01-01"}
+    ]},
+    {"id": "a-fork", "type": "fork", "description": "A fork, merged usages (10), stored, to D (9)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2016-01-01"},
+      {"bikeId": "bike-a", "dateFrom": "2016-01-01", "dateTo": "2018-06-01"},
+      {"bikeId": "bike-d", "dateFrom": "2019-06-01", "dateTo": "now"}
+    ]},
+    {"id": "a-stem", "type": "stem", "description": "A stem, replaces B stem (7)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2018-06-01"},
+      {"bikeId": "bike-b", "dateFrom": "2018-06-01", "dateTo": "now"}
+    ]},
+    {"id": "a-handlebars", "type": "handlebars", "description": "A bars: off A (8), short stay on C (4), D, C", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2016-02-01"},
+      {"bikeId": "bike-a", "dateFrom": "2016-09-01", "dateTo": "2018-06-01"},
+      {"bikeId": "bike-c", "dateFrom": "2018-06-01", "dateTo": "2018-06-15"},
+      {"bikeId": "bike-d", "dateFrom": "2018-06-15", "dateTo": "2022-04-01"},
+      {"bikeId": "bike-c", "dateFrom": "2022-04-01", "dateTo": "now"}
+    ]},
+    {"id": "a-front-rim", "type": "front rim", "description": "A front rim", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2018-06-01"}
+    ]},
+    {"id": "a-front-hub", "type": "front hub", "description": "A front hub", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2018-06-01"}
+    ]},
+    {"id": "a-rear-rim", "type": "rear rim", "description": "A rear rim", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2018-06-01"}
+    ]},
+    {"id": "a-rear-hub", "type": "rear hub", "description": "A rear hub", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2018-06-01"}
+    ]},
+    {"id": "a-sprocket", "type": "sprocket", "description": "A sprocket, to D (2)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2018-06-01"},
+      {"bikeId": "bike-d", "dateFrom": "2018-06-01", "dateTo": "now"}
+    ]},
+    {"id": "a-cranks", "type": "cranks", "description": "A cranks, to C past B (2)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2018-06-01"},
+      {"bikeId": "bike-c", "dateFrom": "2018-06-01", "dateTo": "now"}
+    ]},
+    {"id": "a-rear-brake", "type": "rear brake", "description": "A rear brake, after the build (5)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2015-05-01", "dateTo": "2018-06-01"}
+    ]},
+    {"id": "a-rear-brake-lever", "type": "rear brake lever", "description": "A lever, short stay (4)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2017-01-01", "dateTo": "2017-01-20"}
+    ]},
+    {"id": "a-pedals", "type": "pedals", "description": "A pedals, not drawn (12)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2014-03-01", "dateTo": "2018-06-01"}
+    ]},
+    {"id": "b-frame", "type": "frame", "description": "B frame", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "now"}
+    ]},
+    {"id": "b-fork", "type": "fork", "description": "B fork", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "now"}
+    ]},
+    {"id": "b-stem", "type": "stem", "description": "B stem, replaced, to C (6, 7)", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "2018-06-01"},
+      {"bikeId": "bike-c", "dateFrom": "2018-06-01", "dateTo": "now"}
+    ]},
+    {"id": "b-handlebars", "type": "handlebars", "description": "B handlebars", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "now"}
+    ]},
+    {"id": "b-front-rim", "type": "front rim", "description": "B front rim, lent to C for two months and then given back to B (1, 13)", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "2019-03-01"},
+      {"bikeId": "bike-c", "dateFrom": "2019-03-01", "dateTo": "2019-05-01"},
+      {"bikeId": "bike-b", "dateFrom": "2019-05-01", "dateTo": "now"}
+    ]},
+    {"id": "b-front-hub", "type": "front hub", "description": "B front hub, lent to C (1)", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "2019-03-01"},
+      {"bikeId": "bike-c", "dateFrom": "2019-03-01", "dateTo": "2019-05-01"},
+      {"bikeId": "bike-b", "dateFrom": "2019-05-01", "dateTo": "now"}
+    ]},
+    {"id": "b-rear-rim", "type": "rear rim", "description": "B rear rim, lent to C (1)", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "2019-03-01"},
+      {"bikeId": "bike-c", "dateFrom": "2019-03-01", "dateTo": "2019-05-01"},
+      {"bikeId": "bike-b", "dateFrom": "2019-05-01", "dateTo": "now"}
+    ]},
+    {"id": "b-rear-hub", "type": "rear hub", "description": "B rear hub, lent to C (1)", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "2019-03-01"},
+      {"bikeId": "bike-c", "dateFrom": "2019-03-01", "dateTo": "2019-05-01"},
+      {"bikeId": "bike-b", "dateFrom": "2019-05-01", "dateTo": "now"}
+    ]},
+    {"id": "b-sprocket", "type": "sprocket", "description": "B sprocket, swapped with C (6)", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "2022-04-01"},
+      {"bikeId": "bike-c", "dateFrom": "2022-04-01", "dateTo": "now"}
+    ]},
+    {"id": "b-cranks", "type": "cranks", "description": "B cranks", "usage": [
+      {"bikeId": "bike-b", "dateFrom": "2015-06-01", "dateTo": "now"}
+    ]},
+    {"id": "c-frame", "type": "frame", "description": "C frame, before the build (5)", "usage": [
+      {"bikeId": "bike-c", "dateFrom": "2018-01-01", "dateTo": "now"}
+    ]},
+    {"id": "c-fork", "type": "fork", "description": "C fork", "usage": [
+      {"bikeId": "bike-c", "dateFrom": "2019-03-01", "dateTo": "now"}
+    ]},
+    {"id": "c-handlebars", "type": "handlebars", "description": "C bars, swapped with D (6)", "usage": [
+      {"bikeId": "bike-c", "dateFrom": "2019-03-01", "dateTo": "2022-04-01"},
+      {"bikeId": "bike-d", "dateFrom": "2022-04-01", "dateTo": "now"}
+    ]},
+    {"id": "c-front-rim", "type": "front rim", "description": "C front rim (1)", "usage": [
+      {"bikeId": "bike-c", "dateFrom": "2019-05-01", "dateTo": "now"}
+    ]},
+    {"id": "c-front-hub", "type": "front hub", "description": "C front hub (1)", "usage": [
+      {"bikeId": "bike-c", "dateFrom": "2019-05-01", "dateTo": "now"}
+    ]},
+    {"id": "c-rear-rim", "type": "rear rim", "description": "C rear rim (1)", "usage": [
+      {"bikeId": "bike-c", "dateFrom": "2019-05-01", "dateTo": "now"}
+    ]},
+    {"id": "c-rear-hub", "type": "rear hub", "description": "C rear hub (1)", "usage": [
+      {"bikeId": "bike-c", "dateFrom": "2019-05-01", "dateTo": "now"}
+    ]},
+    {"id": "c-sprocket", "type": "sprocket", "description": "C sprocket, swapped with B (6)", "usage": [
+      {"bikeId": "bike-c", "dateFrom": "2019-03-01", "dateTo": "2022-04-01"},
+      {"bikeId": "bike-b", "dateFrom": "2022-04-01", "dateTo": "now"}
+    ]},
+    {"id": "c-rear-brake", "type": "rear brake", "description": "C rear brake, back left to A (2, 14)", "usage": [
+      {"bikeId": "bike-a", "dateFrom": "2020-06-01", "dateTo": "2021-01-01"},
+      {"bikeId": "bike-c", "dateFrom": "2019-03-01", "dateTo": "2020-06-01"}
+    ]},
+    {"id": "d-frame", "type": "frame", "description": "D frame, never built (11)", "usage": [
+      {"bikeId": "bike-d", "dateFrom": "2018-06-01", "dateTo": "now"}
+    ]},
+    {"id": "d-stem", "type": "stem", "description": "D stem, null date, not drawn (12)", "usage": [
+      {"bikeId": "bike-d", "dateFrom": "2019-01-01", "dateTo": null}
+    ]}
+  ]
+}

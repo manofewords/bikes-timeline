@@ -1275,5 +1275,21 @@
   // Also covers printing via the browser menu or Ctrl/Cmd+P
   window.addEventListener('beforeprint', renderPoster);
 
-  loadData(JSON.parse(document.getElementById('bike-data').textContent));
+  // The page starts with the test data (see README.md), which shows the cases the timeline can draw.
+  // Use "Load JSON…" to show your own data.
+  const DEFAULT_DATA_FILE = 'test-bikes.json';
+  async function loadDefaultData() {
+    let data;
+    try {
+      const response = await fetch(DEFAULT_DATA_FILE);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      data = await response.json();
+    } catch (error) {
+      showDataErrors([`Could not load ${DEFAULT_DATA_FILE}: ${error.message}`],
+        'Open the page through a local web server (see README.md), or use "Load JSON…".');
+      return;
+    }
+    loadData(data);
+  }
+  loadDefaultData();
 })();

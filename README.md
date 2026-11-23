@@ -1,16 +1,17 @@
 # Bike timeline
 
-An HTML page that shows the history of my bikes and how parts moved between them. Open `index.html` in a browser, straight from disk; there is no build step, no server and nothing to install.
+An HTML page that shows the history of my bikes and how parts moved between them. There is no build step and nothing to install, but the page loads its data with `fetch`, so it needs a local web server: run `python3 -m http.server` in this folder and open http://localhost:8000/.
 
 ## Files
 
-- `index.html`: the page itself, with the embedded sample data.
+- `index.html`: the page itself.
+- `test-bikes.json`: the test data, shown when the page opens (see [Test data](#test-data)).
 - `styles.css`: all styles, including the dark theme and the print styles for the poster.
 - `utils.js`: small helpers with no state of their own: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatDuration`, …), `escapeHtml`, text wrapping, `displayNameOf` and `mixWithWhite`.
 - `timeline.js`: everything else: configuration, validation, the model, the screen chart, the A2 poster and the controls.
-- `test.html` and `test.js`: unit tests for `utils.js`. Open `test.html` to run them; it lists every test as passed or failed, with a summary line at the top.
+- `test.html` and `test.js`: unit tests for `utils.js`. `test.html` also runs the visual test (`visual-test.js`, with the reference image `visual-reference.png`). See [Tests](#tests).
 
-The scripts are loaded with plain `<script>` tags (no modules, no `fetch`), so the page works when opened from `file://`. `utils.js` is loaded first and its helpers are global; `timeline.js` keeps its own code inside a function.
+The scripts are loaded with plain `<script>` tags (no modules). `utils.js` is loaded first and its helpers are global; `timeline.js` keeps its own code inside a function.
 
 ## What it shows
 
@@ -24,7 +25,7 @@ The scripts are loaded with plain `<script>` tags (no modules, no `fetch`), so t
 
 ## Data
 
-The page comes with sample data embedded in a `<script id="bike-data">` tag. The current data is fake, and the real data is still being collected. Use **Load JSON…** to open your own file and **Copy JSON** to copy the data that's loaded.
+When the page opens, it loads the test data from `test-bikes.json`. The real data is still being collected. Use **Load JSON…** to open your own file and **Copy JSON** to copy the data that's loaded.
 
 - `bikes: [{ id: uuid, type: "bmx" | "mtb" | "dh" | "gravel" | "commuter" | "road", name: string }]`
 - `parts: [{ id: uuid, type: string, description: string, usage: [{ bikeId: uuid, dateFrom: ISODate, dateTo: ISODate | "now" }] }]`
@@ -85,6 +86,36 @@ Parts moving between bikes are connected by right-angled "L" ribbons: horizontal
 - A part leaving alone leaves flush with the top of its strip, also marked with a dot. Every departure has a dot; arrivals have none.
 - Ribbons stop a small gap (`CONNECTOR_GAP_SIZE`) below the new strip so its bottom edge marks the start date. A part being replaced in that lane keeps its real end date; the ribbon runs underneath it, so the lane has no gap.
 - A part returning to the same bike after a break gets a dotted line.
+
+## Test data
+
+`test-bikes.json` is a small, made-up data set that shows what the timeline can draw and covers its tricky cases. It is what the page shows when it opens, and what the visual test draws. It has to pass the validation without errors. There are four bikes, drawn in this order: three BMX (A, B, C), then a commuter (D). Each part's description names its case by number, so it can be found on the chart and the poster:
+
+1. **Wheels lent for a short time**: C is first built with B's four wheel parts (front and rear rim and hub) for two months, then gets its own; B gets its wheels back the same day. B is not built while its wheels are away, so it has two built periods. Four parts leave B together, and later four leave C together: one ribbon track each.
+2. **Parts moving to a bike that is not the next one**: A's cranks and handlebars go to C, past B; A's sprocket and fork go to D, past B, C and the gap between bike types; C's rear brake goes back left to A, past B.
+3. **A big rebuild**: five parts leave A on the same day (2018-06-01) for three different bikes.
+4. **Short stays**: A's handlebars spend two weeks on C before moving on to D. A rear brake lever stays on A for under three weeks without ever moving.
+5. **Parts before and after a bike's full build**: C's frame, stem and cranks are on it long before C is built; A's frame stays on A years after A is taken apart, and C's rear brake arrives on that frame afterwards. A's rear brake (optional on a BMX) arrives a year after A is built.
+6. **Overlapping ribbons**: on 2018-06-01, B's stem leaves for C on the same day A's parts pass under B to C and D. On 2022-04-01, B and C swap sprockets (two ribbons running opposite ways between the same bikes), and C and D swap handlebars, so C's ribbons go left and right at once.
+7. **A part replaced while its replacement's ribbon arrives**: A's stem replaces B's stem on the day B's stem leaves; the ribbon runs underneath B's old stem.
+8. **A part leaving and coming back to the same bike**: A's handlebars are off A for seven months (dotted line, and a gap in A's built bar).
+9. **A part stored between two bikes**: A's fork leaves A on 2018-06-01 but only goes on D a year later, so its ribbon has a long vertical leg.
+10. **Back-to-back usages** on the same bike are merged into one strip (A's fork).
+11. **A bike that is never built** (D, which also has fewer lanes as a commuter), and a BMX without a rear brake that still counts as built (B).
+12. **Parts that are not drawn**: pedals (ignored on every bike type) and a part with a `null` date.
+13. **Text**: C's long name wraps onto two lines and is cut with "…"; on the poster, the long description of B's front rim is shortened with "…".
+14. **Usage entries out of order** (C's rear brake): the timeline sorts them.
+
+## Tests
+
+Open http://localhost:8000/test.html (with the local web server running). It runs:
+
+- **Unit tests** (`test.js`) for the helpers in `utils.js`.
+- **A visual test** (`visual-test.js`): `index.html` is loaded in a hidden frame and draws `test-bikes.json`, in the light theme and as if today were 2025-09-30 (`index.html?today=2025-09-30`), so the drawing doesn't change from day to day. Its chart is shown over the reference image `visual-reference.png`, with the reference on the left of a red line and the current drawing on the right; drag across the image or use the slider to move the line. Any data errors are listed. When the changes are wanted, **Save as new reference…** saves the current drawing as the new `visual-reference.png` (Chrome and Edge open a save dialog, other browsers download the file; it replaces the old one next to `test.html`). The poster is not part of the test.
+
+Text is drawn with the fonts of the computer and browser, so a reference image saved on another computer or in another browser differs in all text.
+
+Any page can be drawn as if it were another day with a `today` parameter, for example `index.html?today=2025-09-30`.
 
 ## Repository
 
