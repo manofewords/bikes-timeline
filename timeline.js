@@ -1035,7 +1035,7 @@
     } catch {
       copyButton.textContent = 'Copy blocked';
     }
-    setTimeout(() => { copyButton.textContent = 'Copy JSON'; }, 1600);
+    setTimeout(() => { copyButton.textContent = 'Copy data'; }, 1600);
   });
 
   // Build settings dialog: one section per bike type, one row per part type, and one radio button
@@ -1106,7 +1106,7 @@
 
 
   // The page starts with the test data (see README.md), which shows the cases the timeline can draw.
-  // Use "Load JSON…" to show your own data.
+  // Use "Load data…" to show your own data.
   const DEFAULT_DATA_FILE = 'test-bikes.json';
   async function loadDefaultData() {
     let data;
@@ -1116,7 +1116,7 @@
       data = await response.json();
     } catch (error) {
       showDataErrors([`Could not load ${DEFAULT_DATA_FILE}: ${error.message}`],
-        'Open the page through a local web server (see README.md), or use "Load JSON…".');
+        'Open the page through a local web server (see README.md), or use "Load data…".');
       return;
     }
     loadData(data);
