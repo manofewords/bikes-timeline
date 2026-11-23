@@ -635,11 +635,6 @@
         yearLabel.textContent = year;
       }
     }
-
-    const todayY = timestampToY(TODAY_TIMESTAMP);
-    createSvgElement('line', { class: 'today-line', x1: YEAR_AXIS_WIDTH, x2: svgWidth - 8, y1: todayY, y2: todayY }, svg);
-    const todayLabel = createSvgElement('text', { class: 'today-label', x: YEAR_AXIS_WIDTH - 10, y: todayY + 3, 'text-anchor': 'end' }, svg);
-    todayLabel.textContent = 'today';
   }
 
   // A bike's name (wrapped to the width of its bar) and its built periods. A built period is one line

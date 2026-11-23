@@ -121,8 +121,6 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .chart-container svg text { fill: var(--text-secondary); font-size: 11px; }
 .year-grid line { stroke: var(--gridline); stroke-width: 1; }
 .year-grid text { fill: var(--text-muted); font-variant-numeric: tabular-nums; }
-.today-line { stroke: var(--text-muted); stroke-dasharray: 3 3; }
-.today-label { fill: var(--text-muted); font-size: 10px; }
 .built-bar { fill: var(--built-bar-fill); stroke: var(--built-bar-border); stroke-width: 1.25; }
 .bike-type-label { fill: var(--text-primary); font-size: 12px; font-weight: 650; letter-spacing: 0.06em; }
 .bike-type-rule { stroke: var(--axis-line); }
