@@ -267,8 +267,8 @@
   let rawData;                   // the JSON as loaded
   let timelineModel;             // derived model, see buildTimelineModel()
   let pixelsPerYear = 64;
-  let pinnedHighlightKey = null; // 'part:<id>' or 'bike:<id>', set by clicking
-  let hoveredHighlightKey = null;
+  let pinnedHighlightKey = null; // 'part:<id>' or 'bike:<id>', set by clicking; its popup is open
+  let hoveredHighlightKey = null; // set by hovering with a mouse; a pinned highlight wins
   const hiddenBikeIds = new Set(); // bikes whose checkbox is unchecked: not drawn on screen or in print
 
   // =====================================================================
@@ -612,9 +612,10 @@
     renderDepartureDots(svg, departureDots);
     svg.appendChild(partLabelLayer); // on top of the dots
 
-    svg.addEventListener('click', event => { if (event.target === svg) togglePinnedHighlight(null); });
+    svg.addEventListener('click', event => { if (event.target === svg) closePopup(); });
     renderChartHeader(chartContainer, shownBikeTypeGroups, headerLinesByBikeId, headerBottomY, svgWidth, svgHeight, plotTopY);
     applyHighlight();
+    positionPopup(); // closes it: its part or bike was drawn again
   }
 
   // The bike type labels, bike names and built periods are drawn in their own SVG, laid over the empty
@@ -630,14 +631,14 @@
       width: svgWidth, height: chartHeaderHeight, viewBox: `0 0 ${svgWidth} ${chartHeaderHeight}`,
     }, chartHeader);
     const headerBackground = createSvgElement('rect', { class: 'chart-header-background', x: 0, y: 0, width: svgWidth, height: chartHeaderHeight }, headerSvg);
-    headerBackground.addEventListener('click', () => togglePinnedHighlight(null));
+    headerBackground.addEventListener('click', () => closePopup());
     createSvgElement('line', { class: 'chart-header-edge', x1: 0, x2: svgWidth, y1: chartHeaderHeight - 0.5, y2: chartHeaderHeight - 0.5 }, headerSvg);
     renderBikeHeaders(headerSvg, bikeTypeGroups, headerLinesByBikeId, headerBottomY);
     chartContainer.prepend(chartHeader);
 
     // the edge line shows only once the chart has been scrolled down
     const showEdgeWhenScrolled = () => chartContainer.classList.toggle('is-scrolled-down', chartContainer.scrollTop > 0);
-    chartContainer.onscroll = showEdgeWhenScrolled;
+    chartContainer.onscroll = () => { showEdgeWhenScrolled(); positionPopup(); };
     showEdgeWhenScrolled();
   }
 
@@ -716,10 +717,7 @@
           periodText.textContent = line;
         });
 
-        bikeHeader.addEventListener('pointerenter', event => showBikeTooltip(bike, event));
-        bikeHeader.addEventListener('pointermove', positionTooltip);
-        bikeHeader.addEventListener('pointerleave', clearHover);
-        bikeHeader.addEventListener('click', () => togglePinnedHighlight('bike:' + bike.id));
+        attachHighlightHandlers(bikeHeader, 'bike:' + bike.id);
       }
     }
   }
@@ -849,28 +847,116 @@
   // Interaction: tooltip and highlighting
   // =====================================================================
 
+  // A click (or tap) on a part or a bike name highlights it and pins its popup at the click; another click
+  // on it, on the popup, on an empty spot or anywhere outside the chart closes both. Hovering with a mouse
+  // highlights a part or bike too and shows its popup next to the cursor, while no popup is pinned.
   const tooltip = document.getElementById('tooltip');
+  let popupAnchor = null; // { element, offsetX, offsetY }: the click point, relative to the clicked element
 
   function attachPartHoverHandlers(element, part) {
-    element.addEventListener('pointerenter', event => showPartTooltip(part, event));
-    element.addEventListener('pointermove', positionTooltip);
-    element.addEventListener('pointerleave', clearHover);
-    element.addEventListener('click', event => { event.stopPropagation(); togglePinnedHighlight('part:' + part.id); });
+    attachHighlightHandlers(element, 'part:' + part.id);
   }
 
-  function positionTooltip(event) {
-    const cursorOffset = 14;
+  function attachHighlightHandlers(element, highlightKey) {
+    element.addEventListener('pointerenter', event => {
+      if (event.pointerType !== 'mouse') return; // a tap also sends pointerenter: the click opens the popup
+      hoveredHighlightKey = highlightKey;
+      if (!popupAnchor) showHoverPopup(highlightKey, event);
+      applyHighlight();
+    });
+    element.addEventListener('pointermove', event => {
+      if (hoveredHighlightKey === highlightKey && !popupAnchor) placePopupNextTo(event.clientX, event.clientY);
+    });
+    element.addEventListener('pointerleave', () => {
+      if (hoveredHighlightKey !== highlightKey) return;
+      hoveredHighlightKey = null;
+      if (!popupAnchor) hidePopup();
+      applyHighlight();
+    });
+    element.addEventListener('click', event => {
+      event.stopPropagation();
+      if (pinnedHighlightKey === highlightKey && popupAnchor) closePopup();
+      else openPopup(highlightKey, element, event);
+    });
+  }
+
+  function fillPopup(highlightKey) {
+    const [highlightKind, highlightedId] = highlightKey.split(/:(.+)/);
+    tooltip.innerHTML = highlightKind === 'part'
+      ? partPopupHtml(timelineModel.parts.find(candidate => candidate.id === highlightedId))
+      : bikePopupHtml(timelineModel.bikesById[highlightedId]);
+    tooltip.style.display = 'block';
+    tooltip.style.visibility = '';
+  }
+
+  // follows the mouse, and lets clicks through to the chart under it
+  function showHoverPopup(highlightKey, event) {
+    fillPopup(highlightKey);
+    tooltip.classList.add('is-hover-popup');
+    placePopupNextTo(event.clientX, event.clientY);
+  }
+
+  function openPopup(highlightKey, element, event) {
+    pinnedHighlightKey = highlightKey;
+    fillPopup(highlightKey);
+    tooltip.classList.remove('is-hover-popup');
+    const elementBounds = element.getBoundingClientRect();
+    popupAnchor = { element, offsetX: event.clientX - elementBounds.left, offsetY: event.clientY - elementBounds.top };
+    positionPopup();
+    applyHighlight();
+  }
+
+  function closePopup() {
+    pinnedHighlightKey = null;
+    hidePopup();
+    applyHighlight();
+  }
+
+  function hidePopup() {
+    popupAnchor = null;
+    tooltip.style.display = 'none';
+  }
+
+  // Keeps a pinned popup next to its click point when the page or the chart scrolls. It is hidden while
+  // the click point is scrolled out of the chart's view.
+  function positionPopup() {
+    if (!popupAnchor) return;
+    if (!popupAnchor.element.isConnected) { hidePopup(); return; } // the chart was drawn again
+    const elementBounds = popupAnchor.element.getBoundingClientRect();
+    const anchorX = elementBounds.left + popupAnchor.offsetX;
+    const anchorY = elementBounds.top + popupAnchor.offsetY;
+    const chartBounds = document.getElementById('chart-container').getBoundingClientRect();
+    const anchorIsInBikeHeader = popupAnchor.element.closest('.chart-header');
+    const chartHeaderBottom = document.querySelector('.chart-header > svg').getBoundingClientRect().bottom;
+    const visibleTop = anchorIsInBikeHeader ? chartBounds.top : chartHeaderBottom; // the bike header covers the top of the chart
+    const anchorIsVisible = anchorX >= chartBounds.left && anchorX <= chartBounds.right && anchorY >= visibleTop && anchorY <= chartBounds.bottom;
+    tooltip.style.visibility = anchorIsVisible ? '' : 'hidden';
+    placePopupNextTo(anchorX, anchorY);
+  }
+
+  // Puts the popup next to a point, on the side where it fits.
+  function placePopupNextTo(anchorX, anchorY) {
+    const pointOffset = 10;
+    const viewportMargin = 8;
     const tooltipBounds = tooltip.getBoundingClientRect();
-    let left = event.clientX + cursorOffset;
-    let top = event.clientY + cursorOffset;
-    if (left + tooltipBounds.width > innerWidth - 8) left = event.clientX - tooltipBounds.width - cursorOffset;
-    if (top + tooltipBounds.height > innerHeight - 8) top = event.clientY - tooltipBounds.height - cursorOffset;
-    tooltip.style.left = left + 'px';
-    tooltip.style.top = Math.max(8, top) + 'px';
+    let left = anchorX + pointOffset;
+    let top = anchorY + pointOffset;
+    if (left + tooltipBounds.width > innerWidth - viewportMargin) left = anchorX - tooltipBounds.width - pointOffset;
+    if (top + tooltipBounds.height > innerHeight - viewportMargin) top = anchorY - tooltipBounds.height - pointOffset;
+    tooltip.style.left = Math.max(viewportMargin, Math.min(left, innerWidth - viewportMargin - tooltipBounds.width)) + 'px';
+    tooltip.style.top = Math.max(viewportMargin, top) + 'px';
   }
 
-  function showPartTooltip(part, event) {
-    hoveredHighlightKey = 'part:' + part.id;
+  tooltip.addEventListener('click', closePopup);
+  addEventListener('scroll', positionPopup, { passive: true });
+  addEventListener('resize', positionPopup);
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && popupAnchor) closePopup(); });
+  document.addEventListener('click', event => {
+    if (!popupAnchor || event.target.closest('#chart-container, #tooltip')) return;
+    closePopup();
+  });
+
+  function partPopupHtml(part) {
     const bikeName = bikeId => escapeHtml(timelineModel.bikesById[bikeId].name);
     const mountingRows = part.mountings.map(mounting => `<tr>
         <td>${bikeName(mounting.bikeId)}</td>
@@ -878,18 +964,13 @@
         <td>${formatDuration(mounting.endTimestamp - mounting.startTimestamp)}</td>
       </tr>`).join('');
 
-    tooltip.innerHTML = `
+    return `
       <h4><span class="color-swatch" style="background:var(--part-group-${part.partGroup})"></span>${escapeHtml(part.description)}</h4>
       <div class="tooltip-meta">${escapeHtml(part.type)}</div>
       <table>${mountingRows}</table>`;
-    tooltip.style.display = 'block';
-    positionTooltip(event);
-    applyHighlight();
   }
 
-  function showBikeTooltip(bike, event) {
-    hoveredHighlightKey = 'bike:' + bike.id;
-
+  function bikePopupHtml(bike) {
     const builtPeriodRows = bike.builtPeriods.map(period => `<tr>
         <td>built</td>
         <td>${formatPeriodDates(period, ' – ')}</td>
@@ -908,34 +989,20 @@
     }
     const listNames = names => [...names].map(escapeHtml).join(', ');
 
-    tooltip.innerHTML = `
+    return `
       <h4>${escapeHtml(bike.name)}</h4>
       <table>${builtPeriodRows || '<tr><td>never had the full minimum set</td></tr>'}</table>
       ${bikesPartsCameFrom.size ? `<div class="tooltip-meta" style="margin:6px 0 0">Parts from: ${listNames(bikesPartsCameFrom)}</div>` : ''}
       ${bikesPartsWentTo.size ? `<div class="tooltip-meta" style="margin:2px 0 0">Parts passed to: ${listNames(bikesPartsWentTo)}</div>` : ''}`;
-    tooltip.style.display = 'block';
-    positionTooltip(event);
-    applyHighlight();
   }
 
-  function clearHover() {
-    hoveredHighlightKey = null;
-    tooltip.style.display = 'none';
-    applyHighlight();
-  }
-
-  function togglePinnedHighlight(highlightKey) {
-    pinnedHighlightKey = pinnedHighlightKey === highlightKey ? null : highlightKey;
-    applyHighlight();
-  }
-
-  // Highlights the hovered (or else pinned) part or bike and dims everything else.
+  // Highlights the pinned (or else hovered) part or bike and dims everything else.
   function applyHighlight() {
     const svg = document.querySelector('#chart-container > svg');
     if (!svg) return;
     svg.querySelectorAll('.is-highlighted').forEach(element => element.classList.remove('is-highlighted'));
 
-    const activeHighlightKey = hoveredHighlightKey || pinnedHighlightKey;
+    const activeHighlightKey = pinnedHighlightKey || hoveredHighlightKey;
     svg.classList.toggle('has-focus', !!activeHighlightKey);
     if (!activeHighlightKey) return;
 
@@ -981,19 +1048,26 @@
     renderPartsTable();
   }
 
+  // On a small screen the legend and the bike checkboxes start closed, so the chart comes first.
+  const SMALL_SCREEN_QUERY = '(max-width: 600px)'; // same width as the small-screen rules in styles.css
+  if (matchMedia(SMALL_SCREEN_QUERY).matches) {
+    document.getElementById('timeline-legend-section').open = false;
+    document.getElementById('shown-bikes-section').open = false;
+  }
+
   // One checkbox per bike, grouped by bike type: an unchecked bike is not drawn (on screen or in print).
   // Clicking a group's name checks all its bikes, or unchecks them all if they're all checked.
   function renderBikeToggles() {
     const bikeToggles = document.getElementById('bike-toggles');
     bikeToggles.innerHTML = timelineModel.bikeTypeGroups.map(group => `<div class="bike-toggle-group">
-        <button type="button" class="bike-toggle-group-name" title="Show or hide all ${escapeHtml(group.name)} bikes">${escapeHtml(group.label)}</button>
-        ${group.bikes.map(bike => `<label><input type="checkbox" value="${escapeHtml(bike.id)}"${hiddenBikeIds.has(bike.id) ? '' : ' checked'}>${escapeHtml(displayNameOf(bike, BIKE_TYPES_BY_KEY))}</label>`).join('')}
+        <div><button type="button" class="bike-toggle-group-name" title="Show or hide all ${escapeHtml(group.name)} bikes">${escapeHtml(group.label)}</button></div>
+        <div class="bike-toggle-group-bikes">${group.bikes.map(bike => `<label><input type="checkbox" value="${escapeHtml(bike.id)}"${hiddenBikeIds.has(bike.id) ? '' : ' checked'}>${escapeHtml(displayNameOf(bike, BIKE_TYPES_BY_KEY))}</label>`).join('')}</div>
       </div>`).join('');
   }
   document.getElementById('bike-toggles').addEventListener('click', event => {
     const groupNameButton = event.target.closest('.bike-toggle-group-name');
     if (!groupNameButton) return;
-    const groupCheckboxes = [...groupNameButton.parentElement.querySelectorAll('input[type=checkbox]')];
+    const groupCheckboxes = [...groupNameButton.closest('.bike-toggle-group').querySelectorAll('input[type=checkbox]')];
     const showAll = groupCheckboxes.some(checkbox => !checkbox.checked);
     for (const checkbox of groupCheckboxes) {
       checkbox.checked = showAll;

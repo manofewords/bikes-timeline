@@ -74,6 +74,7 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
 .controls label { display: inline-flex; align-items: center; gap: 8px; }
 .controls input[type=range] { width: 140px; }
+.control-buttons { display: flex; align-items: center; gap: 8px; } /* Import, Export and Build settings wrap as one group */
 .button { font: inherit; color: var(--text-primary); background: var(--surface-card); border: 1px solid var(--axis-line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
 .button:hover { border-color: var(--text-muted); }
 #json-file-input { display: none; }
@@ -82,14 +83,16 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .icon-button svg { display: block; }
 
 .settings-dialog { background: var(--surface-card); color: var(--text-primary); border: 1px solid var(--axis-line); border-radius: 12px;
-  padding: 0; width: min(1080px, calc(100vw - 32px)); max-height: calc(100vh - 48px); box-shadow: 0 12px 48px rgba(0,0,0,.24); }
+  padding: 0; width: min(1080px, calc(100vw - 32px)); max-height: calc(100vh - 48px); max-height: calc(100dvh - 32px); box-shadow: 0 12px 48px rgba(0,0,0,.24); }
 .settings-dialog::backdrop { background: rgba(0,0,0,.45); }
-.settings-dialog form { display: flex; flex-direction: column; max-height: calc(100vh - 50px); }
+.settings-dialog form { display: flex; flex-direction: column; max-height: calc(100vh - 50px); max-height: calc(100dvh - 34px); }
 .settings-dialog-header { display: flex; align-items: flex-start; gap: 16px; padding: 16px 20px 12px; border-bottom: 1px solid var(--gridline); }
 .settings-dialog-header h2 { font-size: 17px; font-weight: 650; margin: 0 0 2px; }
 .settings-dialog-header p { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .settings-dialog-header .icon-button { margin-left: auto; flex: none; }
-.settings-sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px 28px; padding: 16px 20px; overflow: auto; }
+/* min-height 0: without it the flex item never gets smaller than its content, so it can't scroll */
+.settings-sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 20px 28px; padding: 16px 20px;
+  overflow: auto; min-height: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .settings-section h3 { font-size: 12px; font-weight: 650; letter-spacing: 0.06em; margin: 0 0 6px; }
 .settings-table { border-collapse: collapse; width: 100%; font-size: 12px; }
 .settings-table th, .settings-table td { padding: 3px 4px; border-bottom: 1px solid var(--gridline); }
@@ -105,12 +108,17 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .settings-table input[type=radio] { margin: 0; accent-color: var(--text-primary); cursor: pointer; }
 .settings-dialog-footer { display: flex; justify-content: flex-end; padding: 12px 20px 16px; border-top: 1px solid var(--gridline); }
 
-.part-group-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; }
+/* the legend and the bike checkboxes: collapsible sections without a card */
+.chart-option-section { margin: 0 0 12px; padding: 0; background: none; border-radius: 0; }
+.chart-option-section > summary { font-size: 13px; margin-bottom: 8px; }
+.chart-option-section:not([open]) > summary { margin-bottom: 0; }
+.part-group-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
 .color-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 .part-group-legend-name { color: var(--text-primary); font-weight: 550; margin-right: 4px; }
 
-.bike-toggles { display: flex; flex-wrap: wrap; gap: 6px 24px; font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; }
-.bike-toggle-group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.bike-toggles { display: flex; flex-wrap: wrap; gap: 10px 32px; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.bike-toggle-group { display: flex; flex-direction: column; gap: 4px; } /* bike type on the first line, its bikes on the second */
+.bike-toggle-group-bikes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .bike-toggle-group-name { font: inherit; color: var(--text-primary); font-weight: 650; letter-spacing: 0.06em;
   background: none; border: 0; padding: 0; cursor: pointer; }
 .bike-toggle-group-name:hover { text-decoration: underline; }
@@ -148,9 +156,10 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .has-focus .part-ribbon.is-highlighted { stroke-opacity: .75; }
 .has-focus .built-bar:not(.is-highlighted) { opacity: .55; }
 
-.tooltip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface-card); color: var(--text-primary);
+.tooltip { position: fixed; z-index: 10; cursor: pointer; background: var(--surface-card); color: var(--text-primary);
   border: 1px solid var(--axis-line); border-radius: 10px; padding: 10px 12px; font-size: 12px; max-width: 340px;
   box-shadow: 0 6px 24px rgba(0,0,0,.14); display: none; }
+.tooltip.is-hover-popup { pointer-events: none; }
 .tooltip h4 { margin: 0 0 2px; font-size: 13px; }
 .tooltip-meta { color: var(--text-secondary); margin-bottom: 6px; }
 .tooltip table { border-collapse: collapse; width: 100%; }
@@ -159,16 +168,32 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .tooltip .color-swatch { width: 8px; height: 8px; vertical-align: 0; }
 
 details { margin-top: 20px; background: var(--surface-card); border-radius: 12px; padding: 12px 16px; }
-summary { cursor: pointer; font-weight: 600; }
+summary { cursor: pointer; font-weight: 600; list-style: none; }
+/* a chevron instead of the browser's triangle: points right when closed, down when open */
+summary::-webkit-details-marker { display: none; }
+summary::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 9px 0 2px; vertical-align: 0.15em;
+  border-right: 1.75px solid currentColor; border-bottom: 1.75px solid currentColor; transform: rotate(-45deg); transition: transform .12s; }
+details[open] > summary::before { transform: rotate(45deg); vertical-align: 0.25em; }
+.parts-table-scroller { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .parts-table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 12px; }
 .parts-table th, .parts-table td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--gridline); vertical-align: top; }
 .parts-table th { color: var(--text-secondary); font-weight: 600; }
+.parts-table td:nth-child(2) { min-width: 150px; } /* on a narrow screen the table scrolls sideways instead of squeezing this */
 .parts-table td.usage-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .data-errors { margin: 0 0 14px; box-shadow: inset 3px 0 0 var(--error-text); font-size: 12px; }
 .data-errors summary { color: var(--error-text); }
 .data-errors p { margin: 6px 0 0; color: var(--text-secondary); }
 .data-errors ul { margin: 6px 0 0; padding-left: 18px; max-height: 220px; overflow: auto; }
 .data-errors li { padding: 1px 0; }
+
+/* ---------- small screens ---------- */
+@media screen and (max-width: 600px) {
+  .viz-root { padding: 16px 12px 32px; }
+  .settings-dialog { width: calc(100vw - 16px); max-width: none; }
+  .settings-dialog-header, .settings-sections { padding-left: 14px; padding-right: 14px; }
+  .settings-dialog-footer { padding: 10px 14px 12px; }
+  .tooltip { max-width: calc(100vw - 16px); }
+}
 
 /* ---------- print: the same chart in the light theme, with each part's description in its lane ---------- */
 /* The class print-view on <html> shows the chart as it prints (used by the visual test). */
@@ -180,7 +205,7 @@ summary { cursor: pointer; font-weight: 600; }
   /* one page of any size: no title, the chart takes the whole page height and is scaled to fit it */
   .viz-root { display: flex; flex-direction: column; height: 100vh; min-height: 0; padding: 0; background: #fff;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .viz-root > header, .controls, .part-group-legend, .bike-toggles, .data-errors, #parts-table-details, .tooltip, .settings-dialog { display: none !important; }
+  .viz-root > header, .controls, .chart-option-section, .data-errors, #parts-table-details, .tooltip, .settings-dialog { display: none !important; }
   .chart-container { flex: 1; min-height: 0; overflow: hidden; max-height: none; border-radius: 0; background: #fff; }
   .chart-container > svg { width: 100%; height: 100%; } /* keeps its proportions: preserveAspectRatio in timeline.js */
   /* the header SVG is scaled like the chart: the chart fits the container's width or height, whichever comes first */
