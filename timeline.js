@@ -606,7 +606,6 @@
     }, chartContainer);
 
     renderYearGrid(svg, svgWidth, timestampToY);
-    renderBikeHeaders(svg, shownBikeTypeGroups, headerLinesByBikeId, headerBottomY);
     renderBuiltBars(svg, timestampToY);
     const departureDots = renderPartRibbons(svg, timestampToY);
     const partLabelLayer = renderPartSegments(svg, timestampToY);
@@ -614,7 +613,32 @@
     svg.appendChild(partLabelLayer); // on top of the dots
 
     svg.addEventListener('click', event => { if (event.target === svg) togglePinnedHighlight(null); });
+    renderChartHeader(chartContainer, shownBikeTypeGroups, headerLinesByBikeId, headerBottomY, svgWidth, svgHeight, plotTopY);
     applyHighlight();
+  }
+
+  // The bike type labels, bike names and built periods are drawn in their own SVG, laid over the empty
+  // space the chart leaves at its top (same coordinates). On screen it stays at the top of the chart
+  // while it scrolls down (position: sticky) and scrolls sideways with it; in print it is scaled
+  // like the chart (see styles.css, which gets the chart's proportions from --chart-aspect-ratio).
+  function renderChartHeader(chartContainer, bikeTypeGroups, headerLinesByBikeId, headerBottomY, svgWidth, svgHeight, plotTopY) {
+    const chartHeaderHeight = plotTopY - 2; // leaves the line of next year at the top of the plot visible
+    const chartHeader = document.createElement('div');
+    chartHeader.className = 'chart-header';
+    chartContainer.style.setProperty('--chart-aspect-ratio', svgWidth / svgHeight);
+    const headerSvg = createSvgElement('svg', {
+      width: svgWidth, height: chartHeaderHeight, viewBox: `0 0 ${svgWidth} ${chartHeaderHeight}`,
+    }, chartHeader);
+    const headerBackground = createSvgElement('rect', { class: 'chart-header-background', x: 0, y: 0, width: svgWidth, height: chartHeaderHeight }, headerSvg);
+    headerBackground.addEventListener('click', () => togglePinnedHighlight(null));
+    createSvgElement('line', { class: 'chart-header-edge', x1: 0, x2: svgWidth, y1: chartHeaderHeight - 0.5, y2: chartHeaderHeight - 0.5 }, headerSvg);
+    renderBikeHeaders(headerSvg, bikeTypeGroups, headerLinesByBikeId, headerBottomY);
+    chartContainer.prepend(chartHeader);
+
+    // the edge line shows only once the chart has been scrolled down
+    const showEdgeWhenScrolled = () => chartContainer.classList.toggle('is-scrolled-down', chartContainer.scrollTop > 0);
+    chartContainer.onscroll = showEdgeWhenScrolled;
+    showEdgeWhenScrolled();
   }
 
   // Places the bike bars left to right, group by group, with a gap between bikes and a wider one
@@ -907,7 +931,7 @@
 
   // Highlights the hovered (or else pinned) part or bike and dims everything else.
   function applyHighlight() {
-    const svg = document.querySelector('#chart-container svg');
+    const svg = document.querySelector('#chart-container > svg');
     if (!svg) return;
     svg.querySelectorAll('.is-highlighted').forEach(element => element.classList.remove('is-highlighted'));
 

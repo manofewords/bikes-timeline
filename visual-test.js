@@ -23,8 +23,8 @@
     'font-variant-numeric', 'letter-spacing', 'text-decoration', 'display',
   ];
 
-  // The chart's SVG as a standalone image: computed styles copied inline, with the chart's background.
-  function chartToPngBlob(svgElement, backgroundColor) {
+  // A copy of an SVG with each element's computed styles copied inline.
+  function copyWithInlineStyles(svgElement) {
     const svgCopy = svgElement.cloneNode(true);
     const originalElements = [svgElement, ...svgElement.querySelectorAll('*')];
     const copiedElements = [svgCopy, ...svgCopy.querySelectorAll('*')];
@@ -34,6 +34,20 @@
       copiedElements[index].setAttribute('style',
         COPIED_STYLE_PROPERTIES.map(property => `${property}:${computedStyle.getPropertyValue(property)}`).join(';'));
     });
+    return svgCopy;
+  }
+
+  // The chart as a standalone image: the chart's SVG with the header SVG drawn over its top
+  // (both use the same coordinates), computed styles copied inline, with the chart's background.
+  function chartToPngBlob(svgElement, headerSvgElement, backgroundColor) {
+    const svgCopy = copyWithInlineStyles(svgElement);
+    if (headerSvgElement) {
+      const headerCopy = copyWithInlineStyles(headerSvgElement);
+      const headerGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      headerGroup.setAttribute('style', headerCopy.getAttribute('style'));
+      headerGroup.append(...headerCopy.childNodes);
+      svgCopy.append(headerGroup);
+    }
     const width = Number(svgElement.getAttribute('width'));
     const height = Number(svgElement.getAttribute('height'));
     svgCopy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -173,7 +187,7 @@
       if (!chart) { comparison.showStatus('The chart was not drawn', 'fail'); continue; }
       frameDocument.documentElement.classList.toggle('print-view', printView);
       const backgroundColor = getComputedStyle(frameDocument.getElementById('chart-container')).backgroundColor;
-      await comparison.showDrawing(await chartToPngBlob(chart, backgroundColor));
+      await comparison.showDrawing(await chartToPngBlob(chart, frameDocument.querySelector('#chart-container .chart-header > svg'), backgroundColor));
       comparison.showStatus(dataErrors.length ? `${dataErrors.length} data errors in test-bikes.json` : 'Drawn. Compare it with the reference.', dataErrors.length ? 'fail' : '');
     }
   }

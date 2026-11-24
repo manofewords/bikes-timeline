@@ -119,6 +119,14 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 
 .chart-container { background: var(--surface-card); border-radius: 12px; overflow: auto; max-height: calc(100vh - 80px); position: relative; }
 .chart-container > svg { display: block; }
+/* bike headers: their own SVG over the empty space at the top of the chart; stays at the top while the chart scrolls down.
+   Height 0 so the chart keeps its place under it. */
+.chart-header { position: -webkit-sticky; position: sticky; top: 0; z-index: 1; height: 0; }
+.chart-header > svg { display: block; }
+.chart-header-background { fill: var(--surface-card); }
+.chart-header-edge { stroke: var(--axis-line); opacity: 0; transition: opacity .12s; }
+.is-scrolled-down .chart-header-edge { opacity: 1; }
+.print-view .chart-header-edge, .print-view .chart-header-background { display: none; } /* nothing scrolls under it there */
 .controls svg, .tooltip svg { display: inline-block; }
 .chart-container svg text { fill: var(--text-secondary); font-size: 11px; }
 .year-grid line { stroke: var(--gridline); stroke-width: 1; }
@@ -175,5 +183,10 @@ summary { cursor: pointer; font-weight: 600; }
   .viz-root > header, .controls, .part-group-legend, .bike-toggles, .data-errors, #parts-table-details, .tooltip, .settings-dialog { display: none !important; }
   .chart-container { flex: 1; min-height: 0; overflow: hidden; max-height: none; border-radius: 0; background: #fff; }
   .chart-container > svg { width: 100%; height: 100%; } /* keeps its proportions: preserveAspectRatio in timeline.js */
+  /* the header SVG is scaled like the chart: the chart fits the container's width or height, whichever comes first */
+  .chart-container { position: relative; container-type: size; }
+  .chart-header { position: absolute; top: 0; left: 0; height: auto; width: min(100cqw, 100cqh * var(--chart-aspect-ratio)); }
+  .chart-header > svg { width: 100%; height: auto; }
+  .chart-header-edge, .chart-header-background { display: none; }
   .part-label { display: inline; }
 }
