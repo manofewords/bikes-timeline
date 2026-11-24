@@ -226,9 +226,16 @@
           const ribbonEndY = Math.min(newStripBottomY + connectorGapSize, departureY);
 
           departureDots.push({ part: transfer.part, x: transfer.startX, y: departureY });
+          // If the new strip starts at (or below) the ribbon's height, there is no room for the 90° turn:
+          // the vertical leg would be shorter than half the ribbon's width, and its corner would show as a
+          // small notch beside the strip. The ribbon then runs straight across the lane to its far edge.
+          const arrivesStraight = departureY - ribbonEndY < ribbonWidth / 2;
+          const direction = transfer.endX > transfer.startX ? 1 : -1;
           ribbons.push({
             ...transfer,
-            pathData: `M${transfer.startX},${departureY} H${transfer.endX} V${ribbonEndY}`,
+            pathData: arrivesStraight
+              ? `M${transfer.startX},${departureY} H${transfer.endX + direction * ribbonWidth / 2}`
+              : `M${transfer.startX},${departureY} H${transfer.endX} V${ribbonEndY}`,
           });
         });
       }

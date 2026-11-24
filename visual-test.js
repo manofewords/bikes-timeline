@@ -53,6 +53,13 @@
     });
   }
 
+  // A PNG's size in pixels, read from its header. The images are sized from this rather than from
+  // naturalWidth, which some browsers scale by the resolution saved in the file's metadata.
+  async function pngPixelSize(pngBlob) {
+    const header = new DataView(await pngBlob.slice(0, 24).arrayBuffer());
+    return { width: header.getUint32(16), height: header.getUint32(20) };
+  }
+
   // One comparison: its section in test.html (from the template), the reference image underneath and
   // the current drawing on top, clipped to the right of the divider.
   function createComparison({ title, referenceFileName }) {
@@ -69,12 +76,17 @@
     const splitSlider = part('split-slider');
     const saveReferenceButton = part('save-button');
     let currentPngBlob = null;
+    const pixelSizeByImage = new Map(); // filled once an image is shown
 
     function updateStage() {
-      const images = [referenceImage, currentImage].filter(image => image.naturalWidth && !image.hidden);
-      for (const image of images) image.style.width = image.naturalWidth / IMAGE_SCALE + 'px';
-      stage.style.width = Math.max(0, ...images.map(image => image.naturalWidth / IMAGE_SCALE)) + 'px';
-      stage.style.height = Math.max(0, ...images.map(image => image.naturalHeight / IMAGE_SCALE)) + 'px';
+      const sizes = [...pixelSizeByImage].map(([image, pixelSize]) => {
+        const size = { width: pixelSize.width / IMAGE_SCALE, height: pixelSize.height / IMAGE_SCALE };
+        image.style.width = size.width + 'px';
+        image.style.height = size.height + 'px';
+        return size;
+      });
+      stage.style.width = Math.max(0, ...sizes.map(size => size.width)) + 'px';
+      stage.style.height = Math.max(0, ...sizes.map(size => size.height)) + 'px';
       const splitPercent = Number(splitSlider.value);
       currentImage.style.clipPath = `inset(0 0 0 ${splitPercent}%)`;
       part('divider').style.left = splitPercent + '%';
@@ -89,12 +101,23 @@
     stage.addEventListener('pointerdown', event => { stage.setPointerCapture(event.pointerId); moveSplitTo(event); });
     stage.addEventListener('pointermove', event => { if (stage.hasPointerCapture(event.pointerId)) moveSplitTo(event); });
 
-    referenceImage.addEventListener('load', updateStage);
-    referenceImage.addEventListener('error', () => {
+    // Shows the image file in the img element, sized from the file's own pixel size.
+    async function showImage(image, pngBlob) {
+      const pixelSize = await pngPixelSize(pngBlob);
+      image.src = URL.createObjectURL(pngBlob);
+      await image.decode();
+      pixelSizeByImage.set(image, pixelSize);
+      updateStage();
+    }
+
+    (async () => {
+      const response = await fetch(referenceFileName, { cache: 'no-store' }); // never a cached copy
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      await showImage(referenceImage, await response.blob());
+    })().catch(() => {
       referenceImage.hidden = true;
       part('missing').hidden = false;
     });
-    referenceImage.src = referenceFileName + '?' + Date.now(); // never a cached copy
 
     // Saves with the browser's file picker where there is one (Chrome, Edge), otherwise as a download.
     saveReferenceButton.addEventListener('click', async () => {
@@ -118,10 +141,8 @@
       showStatus: (text, className = '') => Object.assign(part('status'), { textContent: text, className: 'visual-status ' + className }),
       async showDrawing(pngBlob) {
         currentPngBlob = pngBlob;
-        currentImage.src = URL.createObjectURL(pngBlob);
-        await currentImage.decode();
+        await showImage(currentImage, pngBlob);
         saveReferenceButton.disabled = false;
-        updateStage();
       },
     };
   }
