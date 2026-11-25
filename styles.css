@@ -1,64 +1,29 @@
 .viz-root {
   color-scheme: light;
-  --surface-page: #f3f2ef;
-  --surface-card: #fcfcfb;
-  --built-bar-fill: #ecebe7;
-  --built-bar-border: #2f2e2c;
-  --gridline: #e4e3df;
-  --axis-line: #c9c8c2;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #7a7974;
-  --part-group-chassis: #446cb4;
-  --part-group-wheels: #c38b27;
-  --part-group-brakes: #268d81;
-  --part-group-cockpit: #8061b0;
-  --part-group-drivetrain: #bb566e;
-  --part-group-seat: #729343;
-  --error-text: #b42318;
+  /* light-dark(light theme colour, dark theme colour): the one for the element's color-scheme */
+  --surface-page: light-dark(#f3f2ef, #111110);
+  --surface-card: light-dark(#fcfcfb, #1a1a19);
+  --built-bar-fill: light-dark(#ecebe7, #2a2a28);
+  --built-bar-border: light-dark(#2f2e2c, #d6d5ce);
+  --gridline: light-dark(#e4e3df, #2c2c2a);
+  --axis-line: light-dark(#c9c8c2, #4a4a46);
+  --text-primary: light-dark(#0b0b0b, #f0efec);
+  --text-secondary: light-dark(#52514e, #c3c2b7);
+  --text-muted: light-dark(#7a7974, #8f8e86);
+  --part-group-chassis: light-dark(#446cb4, #5e86ce);
+  --part-group-wheels: light-dark(#c38b27, #dda440);
+  --part-group-brakes: light-dark(#268d81, #3fa79a);
+  --part-group-cockpit: light-dark(#8061b0, #997bca);
+  --part-group-drivetrain: light-dark(#bb566e, #d57087);
+  --part-group-seat: light-dark(#729343, #8cac5c);
+  --error-text: light-dark(#b42318, #f97066);
 }
 /* Dark theme on screen only: print always uses the light theme. */
 @media screen and (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) .viz-root {
-    color-scheme: dark;
-    --surface-page: #111110;
-    --surface-card: #1a1a19;
-    --built-bar-fill: #2a2a28;
-    --built-bar-border: #d6d5ce;
-    --gridline: #2c2c2a;
-    --axis-line: #4a4a46;
-    --text-primary: #f0efec;
-    --text-secondary: #c3c2b7;
-    --text-muted: #8f8e86;
-    --part-group-chassis: #5e86ce;
-    --part-group-wheels: #dda440;
-    --part-group-brakes: #3fa79a;
-    --part-group-cockpit: #997bca;
-    --part-group-drivetrain: #d57087;
-    --part-group-seat: #8cac5c;
-    --error-text: #f97066;
-  }
+  :root:where(:not([data-theme="light"])) .viz-root { color-scheme: dark; }
 }
 @media screen {
-  :root[data-theme="dark"] .viz-root {
-    color-scheme: dark;
-    --surface-page: #111110;
-    --surface-card: #1a1a19;
-    --built-bar-fill: #2a2a28;
-    --built-bar-border: #d6d5ce;
-    --gridline: #2c2c2a;
-    --axis-line: #4a4a46;
-    --text-primary: #f0efec;
-    --text-secondary: #c3c2b7;
-    --text-muted: #8f8e86;
-    --part-group-chassis: #5e86ce;
-    --part-group-wheels: #dda440;
-    --part-group-brakes: #3fa79a;
-    --part-group-cockpit: #997bca;
-    --part-group-drivetrain: #d57087;
-    --part-group-seat: #8cac5c;
-    --error-text: #f97066;
-  }
+  :root[data-theme="dark"] .viz-root { color-scheme: dark; }
 }
 
 * { box-sizing: border-box; }
