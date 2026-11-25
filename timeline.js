@@ -144,96 +144,6 @@
   }
   applyBikeTypeSettings();
 
-  // ---------------------------------------------------------------------
-  // Transfer ribbons: right-angled "L" shapes
-  //
-  // A ribbon leaves the old bike's strip horizontally, runs across to the part's lane
-  // on the new bike, and turns 90° up into the bottom of the new strip.
-  //
-  // When several parts leave the same bike on the same date (a rebuild), each one gets
-  // its own track: track k leaves k steps *before* the move date (lower on the chart).
-  // The old strip still runs unbroken to its real end date, and a dot in a darker shade
-  // of the strip's colour marks where the ribbon leaves it.
-  //
-  //   old bike                new bike
-  //    ◠                     |_|
-  //   | |  ← strip to the    | |
-  //   | |    real end date   | |
-  //   |●|____________________| |   ← track 1, ● = departure dot
-  //   | |
-  //
-  // A part that leaves on its own leaves exactly at the top of its strip, also marked with a dot.
-  // Every departure has a dot; arrivals never do.
-  //
-  // On the new bike, the ribbon stops a small gap below the new strip, so the strip's
-  // bottom edge marks the exact start date. If the incoming part replaces a part that was
-  // still in that lane, the replaced part keeps its real end date: the ribbon (drawn below
-  // the strips) runs underneath it, so the lane stays unbroken. Its vertical leg shows
-  // through when the part is highlighted, because the other strips are dimmed then:
-  //
-  //   new bike lane
-  //     | |   ← incoming part, starts at its real date
-  //     | |   ← replaced part, runs to its real end date
-  //   ══╡ |   ← horizontal track, ending under the lane
-  //     | |
-
-  // Track order: the ribbon that turns up into the lane nearest the old bike gets the
-  // highest track, so the ribbons of one rebuild don't cross each other.
-  // Built bars and strips always keep their real dates.
-  // ---------------------------------------------------------------------
-  // Returns the ribbons, plus one departure dot ({ part, x, y }) per ribbon.
-  function computeTransferRibbons({ laneCenterX, timestampToY, trackSpacing, ribbonWidth, connectorGapSize }) {
-    // Group departures by (old bike, date): everything leaving a bike together shares one set of tracks.
-    const departureGroups = new Map();
-    for (const part of timelineModel.parts) {
-      for (const [previousMounting, nextMounting] of consecutivePairs(part.mountings)) {
-        if (previousMounting.bikeId === nextMounting.bikeId) continue; // same-bike breaks are drawn as storage links
-        const startX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
-        const endX = laneCenterX(nextMounting.bikeId, nextMounting.laneIndex);
-        if (startX == null || endX == null) continue;
-        const groupKey = `${previousMounting.bikeId}@${previousMounting.endTimestamp}`;
-        if (!departureGroups.has(groupKey)) departureGroups.set(groupKey, []);
-        departureGroups.get(groupKey).push({ part, previousMounting, nextMounting, startX, endX });
-      }
-    }
-
-    const ribbons = [];
-    const departureDots = [];
-
-    for (const departures of departureGroups.values()) {
-      const leavesTogether = departures.length > 1;
-      // Right-going and left-going ribbons each get their own track sequence.
-      const rightGoing = departures.filter(transfer => transfer.endX > transfer.startX).sort((first, second) => first.endX - second.endX);
-      const leftGoing = departures.filter(transfer => transfer.endX <= transfer.startX).sort((first, second) => second.endX - first.endX);
-
-      for (const tracks of [rightGoing, leftGoing]) {
-        tracks.forEach((transfer, trackIndex) => {
-          const moveDateY = timestampToY(transfer.previousMounting.endTimestamp);
-          // A lone part runs flush with the top of its strip; parts of a rebuild leave one step apart.
-          const departureY = leavesTogether ? moveDateY + (trackIndex + 1) * trackSpacing : moveDateY + ribbonWidth / 2;
-          // The new strip's bottom edge sits 1px above its start date; the ribbon stops a gap below that.
-          const newStripBottomY = timestampToY(transfer.nextMounting.startTimestamp) - 1;
-          const ribbonEndY = Math.min(newStripBottomY + connectorGapSize, departureY);
-
-          departureDots.push({ part: transfer.part, x: transfer.startX, y: departureY });
-          // If the new strip starts at (or below) the ribbon's height, there is no room for the 90° turn:
-          // the vertical leg would be shorter than half the ribbon's width, and its corner would show as a
-          // small notch beside the strip. The ribbon then runs straight across the lane to its far edge.
-          const arrivesStraight = departureY - ribbonEndY < ribbonWidth / 2;
-          const direction = transfer.endX > transfer.startX ? 1 : -1;
-          ribbons.push({
-            ...transfer,
-            pathData: arrivesStraight
-              ? `M${transfer.startX},${departureY} H${transfer.endX + direction * ribbonWidth / 2}`
-              : `M${transfer.startX},${departureY} H${transfer.endX} V${ribbonEndY}`,
-          });
-        });
-      }
-    }
-
-    return { ribbons, departureDots };
-  }
-
   // =====================================================================
   // DOM helpers (the helpers that don't need the page are in utils.js)
   // =====================================================================
@@ -531,9 +441,7 @@
       }
     }
 
-    const { ribbons, departureDots } = computeTransferRibbons({
-      laneCenterX, timestampToY, trackSpacing: LANE_WIDTH + RIBBON_TRACK_GAP, ribbonWidth: LANE_WIDTH, connectorGapSize: CONNECTOR_GAP_SIZE,
-    });
+    const { ribbons, departureDots } = computeTransferRibbons(timestampToY, laneCenterX);
     for (const transfer of ribbons) {
       const ribbon = createSvgElement('path', {
         class: 'part-ribbon', 'data-part-id': transfer.part.id,
@@ -543,6 +451,99 @@
       attachHighlightHandlers(ribbon, 'part:' + transfer.part.id);
     }
     return departureDots;
+  }
+
+  // ---------------------------------------------------------------------
+  // Transfer ribbons: right-angled "L" shapes
+  //
+  // A ribbon leaves the old bike's strip horizontally, runs across to the part's lane
+  // on the new bike, and turns 90° up into the bottom of the new strip.
+  //
+  // When several parts leave the same bike on the same date (a rebuild), each one gets
+  // its own track: track k leaves k steps *before* the move date (lower on the chart).
+  // The old strip still runs unbroken to its real end date, and a dot in a darker shade
+  // of the strip's colour marks where the ribbon leaves it.
+  //
+  //   old bike                new bike
+  //    ◠                     |_|
+  //   | |  ← strip to the    | |
+  //   | |    real end date   | |
+  //   |●|____________________| |   ← track 1, ● = departure dot
+  //   | |
+  //
+  // A part that leaves on its own leaves exactly at the top of its strip, also marked with a dot.
+  // Every departure has a dot; arrivals never do.
+  //
+  // On the new bike, the ribbon stops a small gap below the new strip, so the strip's
+  // bottom edge marks the exact start date. If the incoming part replaces a part that was
+  // still in that lane, the replaced part keeps its real end date: the ribbon (drawn below
+  // the strips) runs underneath it, so the lane stays unbroken. Its vertical leg shows
+  // through when the part is highlighted, because the other strips are dimmed then:
+  //
+  //   new bike lane
+  //     | |   ← incoming part, starts at its real date
+  //     | |   ← replaced part, runs to its real end date
+  //   ══╡ |   ← horizontal track, ending under the lane
+  //     | |
+
+  // Track order: the ribbon that turns up into the lane nearest the old bike gets the
+  // highest track, so the ribbons of one rebuild don't cross each other.
+  // Built bars and strips always keep their real dates.
+  // ---------------------------------------------------------------------
+  // Returns the ribbons, plus one departure dot ({ part, x, y }) per ribbon. laneCenterX(bikeId, laneIndex)
+  // is null for a hidden bike: no ribbon goes to or from it.
+  function computeTransferRibbons(timestampToY, laneCenterX) {
+    const ribbonWidth = LANE_WIDTH;
+    const trackSpacing = LANE_WIDTH + RIBBON_TRACK_GAP;
+    // Group departures by (old bike, date): everything leaving a bike together shares one set of tracks.
+    const departureGroups = new Map();
+    for (const part of timelineModel.parts) {
+      for (const [previousMounting, nextMounting] of consecutivePairs(part.mountings)) {
+        if (previousMounting.bikeId === nextMounting.bikeId) continue; // same-bike breaks are drawn as storage links
+        const startX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
+        const endX = laneCenterX(nextMounting.bikeId, nextMounting.laneIndex);
+        if (startX == null || endX == null) continue;
+        const groupKey = `${previousMounting.bikeId}@${previousMounting.endTimestamp}`;
+        if (!departureGroups.has(groupKey)) departureGroups.set(groupKey, []);
+        departureGroups.get(groupKey).push({ part, previousMounting, nextMounting, startX, endX });
+      }
+    }
+
+    const ribbons = [];
+    const departureDots = [];
+
+    for (const departures of departureGroups.values()) {
+      const leavesTogether = departures.length > 1;
+      // Right-going and left-going ribbons each get their own track sequence.
+      const rightGoing = departures.filter(transfer => transfer.endX > transfer.startX).sort((first, second) => first.endX - second.endX);
+      const leftGoing = departures.filter(transfer => transfer.endX <= transfer.startX).sort((first, second) => second.endX - first.endX);
+
+      for (const tracks of [rightGoing, leftGoing]) {
+        tracks.forEach((transfer, trackIndex) => {
+          const moveDateY = timestampToY(transfer.previousMounting.endTimestamp);
+          // A lone part runs flush with the top of its strip; parts of a rebuild leave one step apart.
+          const departureY = leavesTogether ? moveDateY + (trackIndex + 1) * trackSpacing : moveDateY + ribbonWidth / 2;
+          // The new strip's bottom edge sits 1px above its start date; the ribbon stops a gap below that.
+          const newStripBottomY = timestampToY(transfer.nextMounting.startTimestamp) - 1;
+          const ribbonEndY = Math.min(newStripBottomY + CONNECTOR_GAP_SIZE, departureY);
+
+          departureDots.push({ part: transfer.part, x: transfer.startX, y: departureY });
+          // If the new strip starts at (or below) the ribbon's height, there is no room for the 90° turn:
+          // the vertical leg would be shorter than half the ribbon's width, and its corner would show as a
+          // small notch beside the strip. The ribbon then runs straight across the lane to its far edge.
+          const arrivesStraight = departureY - ribbonEndY < ribbonWidth / 2;
+          const direction = transfer.endX > transfer.startX ? 1 : -1;
+          ribbons.push({
+            ...transfer,
+            pathData: arrivesStraight
+              ? `M${transfer.startX},${departureY} H${transfer.endX + direction * ribbonWidth / 2}`
+              : `M${transfer.startX},${departureY} H${transfer.endX} V${ribbonEndY}`,
+          });
+        });
+      }
+    }
+
+    return { ribbons, departureDots };
   }
 
   // Each strip also gets its part's description written along it, reading upwards. The descriptions
