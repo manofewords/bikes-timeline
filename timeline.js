@@ -90,8 +90,6 @@
     !bikeType.lanePartTypes.includes(partType) ? 'ignored'
       : bikeType.optionalPartTypes.includes(partType) ? 'optional' : 'mandatory';
 
-  // Part types that are ignored on every bike type are skipped without a warning.
-  let silentlySkippedPartTypes; // set by applyBikeTypeSettings()
   // =====================================================================
   // Layout (all values in pixels)
   // =====================================================================
@@ -129,20 +127,9 @@
   const PART_LABEL_FONT_SIZE = LANE_WIDTH * 0.8;  // print only: part descriptions written along the strips
   const PART_LABEL_END_PADDING = 2;               // space between a label and the ends of its strip
 
-  let laneLayoutByBikeType; // set by applyBikeTypeSettings()
   // Left x of a lane of a placed bike on the chart, or null for a hidden bike (not placed).
   const laneLeftXOf = (bike, laneIndex) =>
-    bike.barLeftX == null ? null : bike.barLeftX + laneLayoutByBikeType[bike.type].laneOffsetsX[laneIndex];
-
-  // Recomputes everything that depends on the lanes of each bike type. Call it after changing
-  // lanePartTypes or optionalPartTypes, then rebuild the model.
-  function applyBikeTypeSettings() {
-    const laneSpacing = { laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING, minBarWidth: MIN_BAR_WIDTH };
-    laneLayoutByBikeType = Object.fromEntries(
-      BIKE_TYPES.map(bikeType => [bikeType.type, computeLaneLayout(LANE_DEFINITIONS, bikeType.lanePartTypes, laneSpacing)]));
-    silentlySkippedPartTypes = new Set(partTypesIgnoredOnEveryBikeType(BIKE_TYPES, PART_TYPES));
-  }
-  applyBikeTypeSettings();
+    bike.barLeftX == null ? null : bike.barLeftX + timelineModel.laneLayoutByBikeType[bike.type].laneOffsetsX[laneIndex];
 
   // =====================================================================
   // DOM helpers (the helpers that don't need the page are in utils.js)
@@ -191,9 +178,11 @@
     const bikes = data.bikes.map(bike => ({ ...bike, mountings: [] }));
     const bikesById = Object.fromEntries(bikes.map(bike => [bike.id, bike]));
 
+    // Part types that are ignored on every bike type are skipped without a warning.
+    const ignoredPartTypes = new Set(partTypesIgnoredOnEveryBikeType(BIKE_TYPES, PART_TYPES));
     const hasMissingDate = part => part.usage.some(usage => usage.dateFrom == null || usage.dateTo == null);
     const usableParts = data.parts.filter(part => {
-      if (silentlySkippedPartTypes.has(part.type)) return false;
+      if (ignoredPartTypes.has(part.type)) return false;
       if (hasMissingDate(part)) {
         console.log(`Ignored part with a null date: ${part.type} "${part.description}"`, part);
         return false;
@@ -250,7 +239,11 @@
     const earliestYear = new Date(Math.min(...allTimestamps, TODAY_TIMESTAMP)).getUTCFullYear();
 
     const partsById = Object.fromEntries(shownParts.map(part => [part.id, part]));
-    return { bikes, bikesById, parts: shownParts, partsById, bikeTypeGroups, earliestYear };
+    // Lane positions and bar width of each bike type (they follow the build settings).
+    const laneSpacing = { laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING, minBarWidth: MIN_BAR_WIDTH };
+    const laneLayoutByBikeType = Object.fromEntries(
+      BIKE_TYPES.map(bikeType => [bikeType.type, computeLaneLayout(LANE_DEFINITIONS, bikeType.lanePartTypes, laneSpacing)]));
+    return { bikes, bikesById, parts: shownParts, partsById, bikeTypeGroups, earliestYear, laneLayoutByBikeType };
   }
 
   // =====================================================================
@@ -268,7 +261,7 @@
     const shownBikeTypeGroups = timelineModel.bikeTypeGroups
       .map(group => ({ ...group, bikes: group.bikes.filter(bike => !hiddenBikeIds.has(bike.id)) }))
       .filter(group => group.bikes.length > 0);
-    const barWidthOf = bike => laneLayoutByBikeType[bike.type].barWidth;
+    const barWidthOf = bike => timelineModel.laneLayoutByBikeType[bike.type].barWidth;
     const columns = layoutBikeColumns(shownBikeTypeGroups, YEAR_AXIS_WIDTH + YEAR_AXIS_TO_FIRST_BAR, GAP_BETWEEN_BIKES, GAP_BETWEEN_BIKE_TYPES, barWidthOf);
     timelineModel.bikes.forEach(bike => { bike.barLeftX = null; });
     for (const group of shownBikeTypeGroups) {
@@ -963,7 +956,6 @@
   // Fires for the close button, Done and the Escape key.
   buildSettingsDialog.addEventListener('close', () => {
     readBuildSettings();
-    applyBikeTypeSettings();
     loadData(rawData);
   });
 
