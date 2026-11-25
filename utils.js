@@ -201,6 +201,11 @@ function fitTextIntoLength(text, maxLength, measureWidth) {
 // Validation: checks the JSON as loaded, before it is processed
 // =====================================================================
 
+// The part types that no bike type has a lane for (bikeTypes: [{ lanePartTypes }]). Parts of these
+// types are not drawn, and not reported either.
+const partTypesIgnoredOnEveryBikeType = (bikeTypes, partTypes) =>
+  partTypes.filter(partType => bikeTypes.every(bikeType => !bikeType.lanePartTypes.includes(partType)));
+
 const REQUIRED_BIKE_FIELDS = ['id', 'type', 'name'];
 const REQUIRED_PART_FIELDS = ['id', 'type', 'description', 'usage'];
 const REQUIRED_USAGE_FIELDS = ['bikeId', 'dateFrom', 'dateTo'];
@@ -215,8 +220,7 @@ const REQUIRED_USAGE_FIELDS = ['bikeId', 'dateFrom', 'dateTo'];
 // partTypes: every known part type (PART_TYPES).
 function validateData(data, bikeTypes, partTypes) {
   const bikeTypesByKey = Object.fromEntries(bikeTypes.map(bikeType => [bikeType.type, bikeType]));
-  const partTypesIgnoredOnEveryBikeType = new Set(partTypes
-    .filter(partType => bikeTypes.every(bikeType => !bikeType.lanePartTypes.includes(partType))));
+  const ignoredPartTypes = new Set(partTypesIgnoredOnEveryBikeType(bikeTypes, partTypes));
   const errors = [];
   if (data === null || typeof data !== 'object' || !Array.isArray(data.bikes) || !Array.isArray(data.parts)) {
     errors.push('The JSON has to be an object with a "bikes" list and a "parts" list');
@@ -317,7 +321,7 @@ function validateData(data, bikeTypes, partTypes) {
   const bikeTypeByBikeId = new Map(validBikes.map(bike => [String(bike.id), bikeTypesByKey[bike.type]]));
   const datedMountingsByBikeId = new Map(validBikes.map(bike => [String(bike.id), []]));
   for (const part of validParts) {
-    const isDrawn = !partTypesIgnoredOnEveryBikeType.has(part.type)
+    const isDrawn = !ignoredPartTypes.has(part.type)
       && part.usage.every(usage => usage.dateFrom != null && usage.dateTo != null);
     const datedMountings = [];
     for (const usage of part.usage) {

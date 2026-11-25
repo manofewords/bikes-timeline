@@ -140,9 +140,7 @@
   function applyBikeTypeSettings() {
     screenLaneLayoutByBikeType = Object.fromEntries(
       BIKE_TYPES.map(bikeType => [bikeType.type, computeLaneLayout(LANE_DEFINITIONS, bikeType.lanePartTypes, SCREEN_LANE_SPACING)]));
-    const partTypesIgnoredOnEveryBikeType = PART_TYPES
-      .filter(partType => BIKE_TYPES.every(bikeType => !bikeType.lanePartTypes.includes(partType)));
-    silentlySkippedPartTypes = new Set(partTypesIgnoredOnEveryBikeType);
+    silentlySkippedPartTypes = new Set(partTypesIgnoredOnEveryBikeType(BIKE_TYPES, PART_TYPES));
   }
   applyBikeTypeSettings();
 
@@ -285,7 +283,6 @@
 
     const hasMissingDate = part => part.usage.some(usage => usage.dateFrom == null || usage.dateTo == null);
     const usableParts = data.parts.filter(part => {
-      if (!PART_TYPES.includes(part.type)) return false; // reported by validateData()
       if (silentlySkippedPartTypes.has(part.type)) return false;
       if (hasMissingDate(part)) {
         console.log(`Ignored part with a null date: ${part.type} "${part.description}"`, part);

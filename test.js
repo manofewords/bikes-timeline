@@ -198,6 +198,12 @@ test('fitTextIntoLength: longer text is shortened with "…", or null when it ca
   assertEqual(fitTextIntoLength('Production', 3, characterCount), null);
 });
 
+test('partTypesIgnoredOnEveryBikeType: the part types no bike type has a lane for', () => {
+  const bikeTypes = [{ lanePartTypes: ['frame', 'fork'] }, { lanePartTypes: ['frame', 'stem'] }];
+  assertEqual(partTypesIgnoredOnEveryBikeType(bikeTypes, ['frame', 'fork', 'stem', 'seat', 'gears']), ['seat', 'gears']);
+  assertEqual(partTypesIgnoredOnEveryBikeType(bikeTypes, ['frame']), []);
+});
+
 // validateData() with one bike type that has a frame and a fork lane; "seat" is ignored on every bike type.
 const TEST_BIKE_TYPES = [{ type: 'bmx', lanePartTypes: ['frame', 'fork'] }];
 const TEST_PART_TYPES = ['frame', 'fork', 'seat'];
