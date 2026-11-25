@@ -34,7 +34,6 @@ body { margin: 0; }
   padding: 28px 32px 48px;
 }
 header h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
-header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 
 .controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
 .controls label { display: inline-flex; align-items: center; gap: 8px; }
@@ -176,7 +175,7 @@ details[open] > summary::before { transform: rotate(45deg); vertical-align: 0.25
   .chart-container { flex: 1; min-height: 0; overflow: hidden; max-height: none; border-radius: 0; background: #fff; }
   .chart-container > svg { width: 100%; height: 100%; } /* keeps its proportions: preserveAspectRatio in timeline.js */
   /* the header SVG is scaled like the chart: the chart fits the container's width or height, whichever comes first */
-  .chart-container { position: relative; container-type: size; }
+  .chart-container { container-type: size; }
   .chart-header { position: absolute; top: 0; left: 0; height: auto; width: min(100cqw, 100cqh * var(--chart-aspect-ratio)); }
   .chart-header > svg { width: 100%; height: auto; }
   .chart-header-edge, .chart-header-background { display: none; }

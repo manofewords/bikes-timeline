@@ -1,4 +1,4 @@
-// The bike timeline: data validation, the model, the chart (on screen and in print) and the controls.
+// The bike timeline: the configuration, the model, the chart (on screen and in print) and the controls.
 // Needs utils.js, loaded before it.
 (() => {
   // =====================================================================
@@ -207,8 +207,7 @@
         ...part,
         partGroup: partGroupByPartType[part.type],
         mountings: part.usage
-          .map(usage => ({ bikeId: usage.bikeId, startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) }))
-          .sort((first, second) => first.startTimestamp - second.startTimestamp),
+          .map(usage => ({ bikeId: usage.bikeId, startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) })),
       }));
 
     for (const part of parts) {
@@ -813,6 +812,11 @@
         <div class="bike-toggle-group-bikes">${group.bikes.map(bike => `<label><input type="checkbox" value="${escapeHtml(bike.id)}"${hiddenBikeIds.has(bike.id) ? '' : ' checked'}>${escapeHtml(bike.name)}</label>`).join('')}</div>
       </div>`).join('');
   }
+  // A bike's checkbox holds its id; a checked bike is shown.
+  const showOrHideBike = checkbox => {
+    if (checkbox.checked) hiddenBikeIds.delete(checkbox.value);
+    else hiddenBikeIds.add(checkbox.value);
+  };
   document.getElementById('bike-toggles').addEventListener('click', event => {
     const groupNameButton = event.target.closest('.bike-toggle-group-name');
     if (!groupNameButton) return;
@@ -820,15 +824,12 @@
     const showAll = groupCheckboxes.some(checkbox => !checkbox.checked);
     for (const checkbox of groupCheckboxes) {
       checkbox.checked = showAll;
-      if (showAll) hiddenBikeIds.delete(checkbox.value);
-      else hiddenBikeIds.add(checkbox.value);
+      showOrHideBike(checkbox);
     }
     renderLegendAndChart();
   });
   document.getElementById('bike-toggles').addEventListener('change', event => {
-    const checkbox = event.target;
-    if (checkbox.checked) hiddenBikeIds.delete(checkbox.value);
-    else hiddenBikeIds.add(checkbox.value);
+    showOrHideBike(event.target);
     renderLegendAndChart();
   });
 
