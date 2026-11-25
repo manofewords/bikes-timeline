@@ -7,7 +7,7 @@ An HTML page that shows the history of my bikes and how parts moved between them
 - `index.html`: the page itself.
 - `test-bikes.json`: the test data, shown when the page opens (see [Test data](#test-data)).
 - `styles.css`: all styles, including the dark theme and the print styles. Each colour is written once as `light-dark(light, dark)`, which needs Safari 17.5, Chrome 123 or Firefox 120 or newer.
-- `utils.js`: helpers with no state of their own and no access to the page, so they can be unit tested: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatPeriodYears`, `formatDuration`, …), `mergeBackToBackMountings` and `consecutivePairs` (a part's mountings), `computeBuiltPeriods`, the lane and column layout (`computeLaneLayout`, `layoutBikeColumns`), `escapeHtml`, text wrapping, `describePartTypes` (the legend's part type lists), `fitTextIntoLength` (the print labels), `partTypesIgnoredOnEveryBikeType`, and `validateData` and `findOverlappingPartsOfOneType` (the data errors).
+- `utils.js`: helpers with no state of their own and no access to the page, so they can be unit tested: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatPeriodYears`, `formatDuration`, …), `mergeBackToBackMountings` and `consecutivePairs` (a part's mountings), `computeBuiltPeriods`, the lane and column layout (`computeLaneLayout`, `layoutBikeColumns`), `escapeHtml`, text wrapping, `describePartTypes` (the legend's part type lists), `fitTextIntoLength` (the print labels), `findFreeTrackShift` (keeping ribbons apart), `partTypesIgnoredOnEveryBikeType`, and `validateData` and `findOverlappingPartsOfOneType` (the data errors).
 - `timeline.js`: everything else: configuration, the model, the chart and the controls.
 - `test.html` and `test.js`: unit tests for `utils.js`. `test.html` also runs the visual tests (`visual-test.js`, with the reference images `visual-reference.png` and `visual-reference-print.png`). See [Tests](#tests).
 
@@ -89,6 +89,7 @@ Parts moving between bikes are connected by right-angled "L" ribbons: horizontal
 - Parts leaving a bike on the same date get their own track each, 1px apart (`RIBBON_TRACK_GAP`), leaving one step earlier per track. The old strip stays unbroken up to its real end date, and a dot in a darker shade of its colour marks where the ribbon leaves it.
 - A part leaving alone leaves flush with the top of its strip, also marked with a dot. Every departure has a dot; arrivals have none.
 - Ribbons stop a small gap (`CONNECTOR_GAP_SIZE`) below the new strip so its bottom edge marks the start date. A part being replaced in that lane keeps its real end date; the ribbon runs underneath it, so the lane has no gap.
+- Ribbons of different departures (from other bikes, or on dates close together) don't run on top of each other: departures are placed from the latest date down, and one whose tracks would overlap ribbons already placed moves down (leaves earlier) one track at a time, all its tracks together. It moves at most `MAX_RIBBON_TRACK_SHIFT` tracks and never below the bottom of its old strip; on the same date, the departure with the shortest old strip is placed first, as it has the least room. If no shift clears it, the one with the fewest overlaps is used. Ribbons arriving in the same lane can still share their vertical leg.
 - A part returning to the same bike after a break gets a dotted line.
 
 ## Test data
@@ -100,7 +101,7 @@ Parts moving between bikes are connected by right-angled "L" ribbons: horizontal
 3. **A big rebuild**: five parts leave A on the same day (2018-06-01) for three different bikes.
 4. **Short stays**: A's handlebars spend two weeks on C before moving on to D. A rear brake lever stays on A for under three weeks without ever moving.
 5. **Parts before and after a bike's full build**: C's frame, stem and cranks are on it long before C is built; A's frame stays on A years after A is taken apart, and C's rear brake arrives on that frame afterwards. A's rear brake (optional on a BMX) arrives a year after A is built.
-6. **Overlapping ribbons**: on 2018-06-01, B's stem leaves for C on the same day A's parts pass under B to C and D. On 2022-04-01, B and C swap sprockets (two ribbons running opposite ways between the same bikes), and C and D swap handlebars, so C's ribbons go left and right at once.
+6. **Overlapping ribbons**: on 2018-06-01, B's stem leaves for C on the same day A's parts pass under B to C and D. On 2022-04-01, B and C swap sprockets (two ribbons running opposite ways between the same bikes), and C and D swap handlebars, so C's ribbons go left and right at once. Each of these gets its own tracks; on 2022-04-01 the second ribbon of each swap leaves one track lower.
 7. **A part replaced while its replacement's ribbon arrives**: A's stem replaces B's stem on the day B's stem leaves; the ribbon runs underneath B's old stem.
 8. **A part leaving and coming back to the same bike**: A's handlebars are off A for seven months (dotted line, and a gap in A's built bar).
 9. **A part stored between two bikes**: A's fork leaves A on 2018-06-01 but only goes on D a year later, so its ribbon has a long vertical leg.

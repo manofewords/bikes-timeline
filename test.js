@@ -274,6 +274,25 @@ test('findOverlappingPartsOfOneType: two parts of one type on a bike at once', (
   ]), ['Haro: two × frame at 2015-01-01 (Second frame)']);
   assertEqual(findOverlappingPartsOfOneType([{ name: 'Haro', mountings: [] }]), []);
 });
+test('findFreeTrackShift: moves runs down until they are clear of placed runs', () => {
+  const run = (y, leftX, rightX, maxY = 1000) => ({ y, leftX, rightX, maxY });
+  // nothing placed, or placed elsewhere: no shift
+  assertEqual(findFreeTrackShift([run(100, 0, 50)], [], 6, 4), 0);
+  assertEqual(findFreeTrackShift([run(100, 0, 50)], [run(100, 60, 90)], 6, 4), 0);
+  assertEqual(findFreeTrackShift([run(100, 0, 50)], [run(94, 0, 90)], 6, 4), 0); // exactly one track apart
+  // on top of a placed run: one step down; two placed runs: two steps
+  assertEqual(findFreeTrackShift([run(100, 0, 50)], [run(100, 40, 90)], 6, 4), 6);
+  assertEqual(findFreeTrackShift([run(100, 0, 50)], [run(100, 40, 90), run(106, 0, 20)], 6, 4), 12);
+  // runs move together
+  assertEqual(findFreeTrackShift([run(100, 0, 50), run(106, 0, 60)], [run(110, 55, 90)], 6, 4), 12); // only the second run is in the way
+  // no free shift within maxSteps: the one with the fewest collisions, the smaller one on a tie
+  const crowd = [run(100, 0, 90), run(106, 0, 90), run(112, 0, 90)];
+  assertEqual(findFreeTrackShift([run(100, 0, 50), run(106, 60, 80)], crowd, 6, 1), 0); // 2 collisions at both shifts
+  assertEqual(findFreeTrackShift([run(100, 0, 50), run(94, 60, 80)], crowd, 6, 1), 0); // 1 collision, then 2
+  // a run never moves below its maxY (the bottom of its strip)
+  assertEqual(findFreeTrackShift([run(100, 0, 50, 104)], [run(100, 0, 90)], 6, 4), 0);
+  assertEqual(findFreeTrackShift([run(100, 0, 50, 106)], [run(100, 0, 90)], 6, 4), 6);
+});
 
 const summary = document.getElementById('summary');
 summary.textContent = `${passedCount} passed, ${failedCount} failed`;

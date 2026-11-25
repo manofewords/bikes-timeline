@@ -345,3 +345,23 @@ function findOverlappingPartsOfOneType(bikes) {
   }
   return errors;
 }
+
+// Ribbon tracks: how far to move a set of horizontal ribbon runs down (to an earlier date) so they don't
+// run on top of runs placed before. A run is { y, leftX, rightX, maxY }: y is where it would run, maxY
+// the lowest it may go (it has to leave its strip). Two runs collide when they share some x and are
+// less than trackSpacing apart in y. The runs move together, in steps of trackSpacing, at most
+// maxSteps steps. Returns the first shift without collisions; if there is none, the one with the
+// fewest (the smaller shift on a tie), so ribbons never move further than maxSteps.
+function findFreeTrackShift(runs, placedRuns, trackSpacing, maxSteps) {
+  const collisionCount = shiftY => runs.filter(run => placedRuns.some(placedRun =>
+    Math.abs(run.y + shiftY - placedRun.y) < trackSpacing && run.leftX < placedRun.rightX && placedRun.leftX < run.rightX)).length;
+  let bestShift = 0, fewestCollisions = Infinity;
+  for (let step = 0; step <= maxSteps; step++) {
+    const shiftY = step * trackSpacing;
+    if (step > 0 && runs.some(run => run.y + shiftY > run.maxY)) break;
+    const collisions = collisionCount(shiftY);
+    if (collisions < fewestCollisions) { bestShift = shiftY; fewestCollisions = collisions; }
+    if (collisions === 0) break;
+  }
+  return bestShift;
+}

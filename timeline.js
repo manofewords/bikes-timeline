@@ -101,6 +101,7 @@
   const MIN_BAR_WIDTH = 100;         // narrower bike bars are widened to this, with their lanes centred
   const RIBBON_TRACK_GAP = 1;        // empty space between the tracks of ribbons leaving a bike together
   const CONNECTOR_GAP_SIZE = 3;      // gap between an arriving ribbon and its new strip
+  const MAX_RIBBON_TRACK_SHIFT = 4;  // a departure moves at most this many tracks down to keep clear of other ribbons
   const DEPARTURE_DOT_SHADE = 0.6;   // departure dot colour: this much of the strip colour, the rest black
   const GAP_BETWEEN_BIKES = 24;
   const GAP_BETWEEN_BIKE_TYPES = 34;
@@ -484,6 +485,12 @@
 
   // Track order: the ribbon that turns up into the lane nearest the old bike gets the
   // highest track, so the ribbons of one rebuild don't cross each other.
+  //
+  // Ribbons of different departures (other bikes, or dates close together) would still run on top of
+  // each other. So departures are placed from the latest date down, and if a departure's tracks would
+  // run on top of ribbons already placed, they all move down (leave earlier) one track at a time
+  // (findFreeTrackShift in utils.js): at most MAX_RIBBON_TRACK_SHIFT tracks, and never below the bottom
+  // of the old strip. If no shift clears them, the one with the fewest overlaps is used.
   // Built bars and strips always keep their real dates.
   // ---------------------------------------------------------------------
   // Returns the ribbons, plus one departure dot ({ part, x, y }) per ribbon. laneCenterX(bikeId, laneIndex)
@@ -507,18 +514,37 @@
 
     const ribbons = [];
     const departureDots = [];
+    const placedRuns = []; // horizontal runs of the ribbons placed so far: { y, leftX, rightX }
+    // Latest date first; on the same date, the departure with the shortest old strip first, as it has the
+    // least room to move down.
+    const shortestStayOf = departures => Math.min(...departures.map(({ previousMounting }) => previousMounting.endTimestamp - previousMounting.startTimestamp));
+    const departureGroupsInOrder = [...departureGroups.values()].sort((first, second) =>
+      second[0].previousMounting.endTimestamp - first[0].previousMounting.endTimestamp || shortestStayOf(first) - shortestStayOf(second));
 
-    for (const departures of departureGroups.values()) {
+    for (const departures of departureGroupsInOrder) {
       const leavesTogether = departures.length > 1;
       // Right-going and left-going ribbons each get their own track sequence.
       const rightGoing = departures.filter(transfer => transfer.endX > transfer.startX).sort((first, second) => first.endX - second.endX);
       const leftGoing = departures.filter(transfer => transfer.endX <= transfer.startX).sort((first, second) => second.endX - first.endX);
 
       for (const tracks of [rightGoing, leftGoing]) {
-        tracks.forEach((transfer, trackIndex) => {
+        const runs = tracks.map((transfer, trackIndex) => {
           const moveDateY = timestampToY(transfer.previousMounting.endTimestamp);
-          // A lone part runs flush with the top of its strip; parts of a rebuild leave one step apart.
-          const departureY = leavesTogether ? moveDateY + (trackIndex + 1) * trackSpacing : moveDateY + ribbonWidth / 2;
+          // The old strip's bottom edge sits 1px above its start date; the ribbon has to leave above that.
+          const oldStripBottomY = timestampToY(transfer.previousMounting.startTimestamp) - 1;
+          return {
+            // A lone part runs flush with the top of its strip; parts of a rebuild leave one step apart.
+            y: leavesTogether ? moveDateY + (trackIndex + 1) * trackSpacing : moveDateY + ribbonWidth / 2,
+            leftX: Math.min(transfer.startX, transfer.endX) - ribbonWidth / 2,
+            rightX: Math.max(transfer.startX, transfer.endX) + ribbonWidth / 2,
+            maxY: oldStripBottomY - ribbonWidth / 2,
+          };
+        });
+        const shiftY = findFreeTrackShift(runs, placedRuns, trackSpacing, MAX_RIBBON_TRACK_SHIFT);
+        runs.forEach(run => placedRuns.push({ ...run, y: run.y + shiftY }));
+
+        tracks.forEach((transfer, trackIndex) => {
+          const departureY = runs[trackIndex].y + shiftY;
           // The new strip's bottom edge sits 1px above its start date; the ribbon stops a gap below that.
           const newStripBottomY = timestampToY(transfer.nextMounting.startTimestamp) - 1;
           const ribbonEndY = Math.min(newStripBottomY + CONNECTOR_GAP_SIZE, departureY);
