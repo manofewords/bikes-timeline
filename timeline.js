@@ -131,7 +131,7 @@
 
   const SCREEN_LANE_SPACING = { laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING, minBarWidth: MIN_BAR_WIDTH };
   let screenLaneLayoutByBikeType; // set by applyBikeTypeSettings()
-  // Left x of a lane of a placed bike on the chart, or null for a bike that is not placed (hidden or of an unknown type).
+  // Left x of a lane of a placed bike on the chart, or null for a hidden bike (not placed).
   const laneLeftXOf = (bike, laneIndex) =>
     bike.barLeftX == null ? null : bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[laneIndex];
 
@@ -310,8 +310,7 @@
       const drawnMountings = part.mountings.filter(mounting => {
         const bike = bikesById[mounting.bikeId];
         if (!bike) return false; // reported by validateData()
-        const bikeType = BIKE_TYPES_BY_KEY[bike.type];
-        if (bikeType && !bikeType.lanePartTypes.includes(part.type)) {
+        if (!BIKE_TYPES_BY_KEY[bike.type].lanePartTypes.includes(part.type)) {
           console.warn(`${bike.name} (${bike.type}) has no "${part.type}" lane, so "${part.description}" is not shown on it`);
           return false;
         }
@@ -326,16 +325,14 @@
     const shownParts = parts.filter(part => part.mountings.length > 0);
 
     for (const bike of bikes) {
-      const bikeType = BIKE_TYPES_BY_KEY[bike.type];
-      bike.builtPeriods = bikeType ? computeBuiltPeriods(bike.mountings, requiredPartTypesFor(bikeType)) : [];
+      bike.builtPeriods = computeBuiltPeriods(bike.mountings, requiredPartTypesFor(BIKE_TYPES_BY_KEY[bike.type]));
       bike.partsEverMounted = [...new Set(bike.mountings.map(mounting => mounting.part))];
       bike.sortTimestamp = bike.builtPeriods.length
         ? bike.builtPeriods[0].startTimestamp
         : (bike.mountings.length ? Math.min(...bike.mountings.map(mounting => mounting.startTimestamp)) : TODAY_TIMESTAMP);
     }
 
-    // Group bikes by type, chronologically within each group. Bikes of an unknown type are
-    // reported by validateData() and not placed.
+    // Group bikes by type, chronologically within each group.
     const bikeTypeGroups = BIKE_TYPES
       .map(entry => ({
         ...entry,
@@ -360,8 +357,7 @@
     const timelineStartTimestamp = Date.UTC(timelineModel.earliestYear, 0, 1);
     const timelineEndTimestamp = Date.UTC(CURRENT_YEAR + 1, 0, 1);
 
-    // Horizontal position of every shown bike bar. Hidden bikes (and bikes of an unknown type)
-    // get no position, so nothing is drawn on them and no ribbon goes to or from them.
+    // Horizontal position of every shown bike bar. Hidden bikes get no position, so nothing is drawn on them and no ribbon goes to or from them.
     const shownBikeTypeGroups = timelineModel.bikeTypeGroups
       .map(group => ({ ...group, bikes: group.bikes.filter(bike => !hiddenBikeIds.has(bike.id)) }))
       .filter(group => group.bikes.length > 0);
@@ -504,7 +500,7 @@
   function renderBuiltBars(svg, timestampToY) {
     const barLayer = createSvgElement('g', {}, svg);
     for (const bike of timelineModel.bikes) {
-      if (bike.barLeftX == null) continue; // bike of unknown type: not placed
+      if (bike.barLeftX == null) continue; // hidden bike: not placed
       for (const period of bike.builtPeriods) {
         const topY = timestampToY(period.endTimestamp);
         const bottomY = timestampToY(period.startTimestamp);
@@ -798,7 +794,7 @@
   // the bike checkboxes and the build settings. A part group with none of them is left out.
   function renderPartGroupLegend() {
     const shownLanePartTypes = new Set(timelineModel.bikes
-      .filter(bike => !hiddenBikeIds.has(bike.id) && BIKE_TYPES_BY_KEY[bike.type])
+      .filter(bike => !hiddenBikeIds.has(bike.id))
       .flatMap(bike => BIKE_TYPES_BY_KEY[bike.type].lanePartTypes));
     document.getElementById('part-group-legend').innerHTML = Object.entries(PART_GROUPS)
       .map(([groupKey, group]) => [groupKey, group, partTypesOfGroup(groupKey).filter(partType => shownLanePartTypes.has(partType))])

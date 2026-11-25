@@ -229,10 +229,13 @@ test('validateData: missing fields leave the bike or part out', () => {
 test('validateData: unknown bike type and part type', () => {
   const result = validateData({
     bikes: [testBike('b1', 'Duo', 'tandem')],
-    parts: [testPart('p1', 'bell', 'Bell', testUsage('b1', '2014-01-01', '2016-01-01'))],
+    parts: [testPart('p1', 'bell', 'Bell', testUsage('b1', '2014-01-01', '2016-01-01')),
+      testPart('p2', 'frame', 'Frame', testUsage('b1', '2014-01-01', '2016-01-01'))],
   }, TEST_BIKE_TYPES, TEST_PART_TYPES);
-  assertEqual(result.errors, ['Bike "Duo" (id b1) has unknown bike type "tandem" (known: bmx)', 'Part "Bell" (id p1) has unknown part type "bell"']);
-  assertEqual(result.validParts, []);
+  assertEqual(result.errors, ['Bike "Duo" (id b1) has unknown bike type "tandem" (known: bmx)', 'Part "Bell" (id p1) has unknown part type "bell"',
+    'Part "Frame" references unknown bike b1']);
+  assertEqual(result.validBikes, []);
+  assertEqual(result.validParts.map(part => part.id), ['p2']);
 });
 test('validateData: duplicate ids and unknown bikes', () => {
   assertEqual(validationErrorsOf({

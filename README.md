@@ -54,7 +54,7 @@ The data is checked when it is loaded, before it is processed. Each error is lis
 - No part is on two different bikes at the same time.
 - No part has two usage entries on the same bike that overlap in time. A usage ending on the day the next one starts is not an overlap.
 - Every bike type is one of the bike types above, and every part type is one of the part types in the build settings.
-- Every usage entry's `bikeId` is a bike in the data. A usage on an unknown bike (or on a bike left out for a missing field) is not drawn.
+- Every usage entry's `bikeId` is a bike in the data. A usage on an unknown bike (or on a bike left out for a missing field or an unknown bike type) is not drawn.
 - No bike has two parts of the same type at the same time (each part type has one lane, so they would be drawn on top of each other). Only parts that are drawn are compared: not parts with a `null` date, and not part types that are ignored on that bike's type in the build settings. Back-to-back usages of one part on the same bike count as one.
 
 Bikes and parts with a missing field or an unknown type are left out. Everything else (duplicate ids, overlapping dates, two parts of one type on a bike) is still drawn as it is.

@@ -207,8 +207,8 @@ const REQUIRED_USAGE_FIELDS = ['bikeId', 'dateFrom', 'dateTo'];
 
 // Returns every error found, and the bikes and parts that can be processed: those with all
 // required fields and a known type. Everything else (duplicate ids, overlapping dates, two
-// parts of one type on a bike at once) is reported but still processed. A usage on an
-// unknown bike is reported and left out later, in buildTimelineModel().
+// parts of one type on a bike at once) is reported but still processed. A usage on a bike that
+// isn't in the data or was left out is reported, and left out later in buildTimelineModel().
 // A usage date may be null (a date still to be found out): the part is then skipped later
 // without an error, see buildTimelineModel().
 // bikeTypes: the bike types with their lanePartTypes (BIKE_TYPES in timeline.js);
@@ -229,7 +229,7 @@ function validateData(data, bikeTypes, partTypes) {
   const withId = (label, item) => isMissing(item?.id) ? label : `${label} (id ${item.id})`;
 
   // Required fields
-  const validBikes = data.bikes.filter((bike, bikeIndex) => {
+  const bikesWithAllFields = data.bikes.filter((bike, bikeIndex) => {
     const missingFields = REQUIRED_BIKE_FIELDS.filter(field => isMissing(bike?.[field]));
     if (missingFields.length) errors.push(`${withId(bikeLabel(bike, bikeIndex), bike)} has no ${missingFields.join(', ')}`);
     return missingFields.length === 0;
@@ -275,9 +275,11 @@ function validateData(data, bikeTypes, partTypes) {
   reportDuplicateIds(data.parts, partLabel, 'parts');
 
   // Unknown bike types and part types (the ones in the build settings)
-  validBikes
-    .filter(bike => !bikeTypesByKey[bike.type])
-    .forEach(bike => errors.push(`${withId(bikeLabel(bike), bike)} has unknown bike type "${bike.type}" (known: ${bikeTypes.map(bikeType => bikeType.type).join(', ')})`));
+  const validBikes = bikesWithAllFields.filter(bike => {
+    if (bikeTypesByKey[bike.type]) return true;
+    errors.push(`${withId(bikeLabel(bike), bike)} has unknown bike type "${bike.type}" (known: ${bikeTypes.map(bikeType => bikeType.type).join(', ')})`);
+    return false;
+  });
   const validParts = partsWithAllFields.filter(part => {
     if (partTypes.includes(part.type)) return true;
     errors.push(`${withId(partLabel(part), part)} has unknown part type "${part.type}"`);
@@ -324,7 +326,7 @@ function validateData(data, bikeTypes, partTypes) {
         continue;
       }
       const bikeType = bikeTypeByBikeId.get(String(usage.bikeId));
-      if (!isDrawn || (bikeType && !bikeType.lanePartTypes.includes(part.type))) continue;
+      if (!isDrawn || !bikeType.lanePartTypes.includes(part.type)) continue;
       datedMountings.push({ bikeId: String(usage.bikeId), startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) });
     }
     mergeBackToBackMountings(datedMountings)
