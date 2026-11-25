@@ -51,14 +51,12 @@ test('formatMonthYear: MM.YYYY with a leading zero', () => {
   assertEqual(formatMonthYear(parseDate('2020-01-01')), '01.2020');
   assertEqual(formatMonthYear(parseDate('2019-12-31')), '12.2019');
 });
-test('formatPeriodDates: start–end, with an optional separator', () => {
+test('formatPeriodDates: start–end', () => {
   assertEqual(formatPeriodDates(makePeriod('2002-03-01', '2007-06-30')), '03.2002–06.2007');
-  assertEqual(formatPeriodDates(makePeriod('2002-03-01', '2007-06-30'), ' – '), '03.2002 – 06.2007');
   assertEqual(formatPeriodDates(makePeriod('2014-05-01', '2014-05-20')), '05.2014–05.2014');
 });
 test('formatPeriodDates: an ongoing period ends in "now"', () => {
   assertEqual(formatPeriodDates(makePeriod('2021-04-10', 'now')), '04.2021–now');
-  assertEqual(formatPeriodDates(makePeriod('2021-04-10', 'now'), ' – '), '04.2021 – now');
 });
 test('formatPeriodYears: start and end year, "now", or a single year', () => {
   assertEqual(formatPeriodYears(makePeriod('2002-03-01', '2007-06-30')), '2002–2007');
@@ -172,12 +170,6 @@ test('wrapTextIntoLines: a word that is too long is cut with "…"', () => {
 });
 test('wrapTextIntoLines: no lines for no text', () => {
   assertEqual(wrapTextIntoLines('', 8, 2), []);
-});
-test('displayNameOf: the name, or the type label and number', () => {
-  const bikeTypesByKey = { mtb: { type: 'mtb', label: 'MTB' }, bmx: { type: 'bmx', label: 'BMX' } };
-  assertEqual(displayNameOf({ type: 'mtb', name: 'NS Decade', numberWithinType: 4 }, bikeTypesByKey), 'NS Decade');
-  assertEqual(displayNameOf({ type: 'mtb', name: '', numberWithinType: 2 }, bikeTypesByKey), 'MTB 2');
-  assertEqual(displayNameOf({ type: 'bmx', numberWithinType: 1 }, bikeTypesByKey), 'BMX 1');
 });
 test('describePartTypes: part types joined with " · "', () => {
   assertEqual(describePartTypes(['frame', 'shock', 'fork']), 'frame · shock · fork');

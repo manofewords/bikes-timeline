@@ -303,19 +303,20 @@
         if (!bike) return false; // reported by validateData()
         const bikeType = BIKE_TYPES_BY_KEY[bike.type];
         if (bikeType && !bikeType.lanePartTypes.includes(part.type)) {
-          const warning = `${bike.name} (${bike.type}) has no "${part.type}" lane, so "${part.description}" is not shown on it`;
-          console.warn(warning);
+          console.warn(`${bike.name} (${bike.type}) has no "${part.type}" lane, so "${part.description}" is not shown on it`);
           return false;
         }
         return true;
       });
-      part.mountings = mergeBackToBackMountings(drawnMountings).map(mounting => ({ ...mounting, part }));
+      // Every part type has exactly one lane. Two parts of the same type on one bike at the same time
+      // are a data problem: they're reported by validateData() and drawn on top of each other.
+      const laneIndex = laneIndexByPartType[part.type];
+      part.mountings = mergeBackToBackMountings(drawnMountings).map(mounting => ({ ...mounting, part, laneIndex }));
       part.mountings.forEach(mounting => bikesById[mounting.bikeId].mountings.push(mounting));
     }
     const shownParts = parts.filter(part => part.mountings.length > 0);
 
     for (const bike of bikes) {
-      assignLanes(bike);
       const bikeType = BIKE_TYPES_BY_KEY[bike.type];
       bike.builtPeriods = bikeType ? computeBuiltPeriods(bike.mountings, requiredPartTypesFor(bikeType)) : [];
       bike.partsEverMounted = [...new Set(bike.mountings.map(mounting => mounting.part))];
@@ -332,18 +333,11 @@
         bikes: bikes.filter(bike => bike.type === entry.type).sort((first, second) => first.sortTimestamp - second.sortTimestamp),
       }))
       .filter(group => group.bikes.length > 0);
-    bikeTypeGroups.forEach(group => group.bikes.forEach((bike, indexInGroup) => { bike.numberWithinType = indexInGroup + 1; }));
 
     const allTimestamps = shownParts.flatMap(part => part.mountings.flatMap(mounting => [mounting.startTimestamp, mounting.endTimestamp]));
     const earliestYear = new Date(Math.min(...allTimestamps, TODAY_TIMESTAMP)).getUTCFullYear();
 
     return { bikes, bikesById, parts: shownParts, bikeTypeGroups, earliestYear };
-  }
-
-  // Every part type has exactly one lane. Two parts of the same type on one bike at the
-  // same time are a data problem: they're reported by validateData() and drawn on top of each other.
-  function assignLanes(bike) {
-    bike.mountings.forEach(mounting => { mounting.laneIndex = laneIndexByPartType[mounting.part.type]; });
   }
 
   // =====================================================================
@@ -452,7 +446,7 @@
   // otherwise the duration goes on a line of its own.
   function bikeHeaderLines(bike, columnWidth) {
     const maxCharactersPerLine = Math.floor(bike.barWidth / BIKE_NAME_AVERAGE_CHARACTER_WIDTH);
-    const nameLines = wrapTextIntoLines(displayNameOf(bike, BIKE_TYPES_BY_KEY), maxCharactersPerLine, BIKE_NAME_MAX_LINES);
+    const nameLines = wrapTextIntoLines(bike.name, maxCharactersPerLine, BIKE_NAME_MAX_LINES);
     const builtPeriodLines = bike.builtPeriods.flatMap(period => {
       const dates = formatPeriodYears(period);
       const duration = formatDuration(period.endTimestamp - period.startTimestamp);
@@ -541,7 +535,7 @@
         stroke: `var(--part-group-${transfer.part.partGroup})`, 'stroke-width': LANE_WIDTH,
         d: transfer.pathData,
       }, ribbonLayer);
-      attachPartHoverHandlers(ribbon, transfer.part);
+      attachHighlightHandlers(ribbon, 'part:' + transfer.part.id);
     }
     return departureDots;
   }
@@ -566,7 +560,7 @@
           width: LANE_WIDTH, height: Math.max(1.5, bottomY - topY), rx: LANE_WIDTH / 2, // fully round ends
           style: `--part-color: var(--part-group-${part.partGroup})`,
         }, segmentLayer);
-        attachPartHoverHandlers(segment, part);
+        attachHighlightHandlers(segment, 'part:' + part.id);
 
         const labelText = fitTextIntoLength(part.description, bottomY - topY - 2 * PART_LABEL_END_PADDING, text => measureLabelWidth(text, PART_LABEL_FONT_SIZE));
         if (!labelText) continue;
@@ -598,7 +592,7 @@
         cx: dot.x, cy: dot.y, r: LANE_WIDTH / 2,
         fill: `color-mix(in srgb, var(--part-group-${dot.part.partGroup}) ${Math.round(DEPARTURE_DOT_SHADE * 100)}%, black)`,
       }, dotLayer);
-      attachPartHoverHandlers(dotElement, dot.part);
+      attachHighlightHandlers(dotElement, 'part:' + dot.part.id);
     }
   }
 
@@ -611,10 +605,6 @@
   // highlights a part or bike too and shows its popup next to the cursor, while no popup is pinned.
   const tooltip = document.getElementById('tooltip');
   let popupAnchor = null; // { element, offsetX, offsetY }: the click point, relative to the clicked element
-
-  function attachPartHoverHandlers(element, part) {
-    attachHighlightHandlers(element, 'part:' + part.id);
-  }
 
   function attachHighlightHandlers(element, highlightKey) {
     element.addEventListener('pointerenter', event => {
@@ -718,7 +708,7 @@
   // A row of a popup's table: what the period is (a bike's name, or "built"), its dates and its duration.
   const popupPeriodRowHtml = (labelHtml, period) => `<tr>
         <td>${labelHtml}</td>
-        <td>${formatPeriodDates(period, ' – ')}</td>
+        <td>${formatPeriodDates(period)}</td>
         <td>${formatDuration(period.endTimestamp - period.startTimestamp)}</td>
       </tr>`;
 
@@ -817,7 +807,7 @@
     const bikeToggles = document.getElementById('bike-toggles');
     bikeToggles.innerHTML = timelineModel.bikeTypeGroups.map(group => `<div class="bike-toggle-group">
         <div><button type="button" class="bike-toggle-group-name" title="Show or hide all ${escapeHtml(group.name)} bikes">${escapeHtml(group.label)}</button></div>
-        <div class="bike-toggle-group-bikes">${group.bikes.map(bike => `<label><input type="checkbox" value="${escapeHtml(bike.id)}"${hiddenBikeIds.has(bike.id) ? '' : ' checked'}>${escapeHtml(displayNameOf(bike, BIKE_TYPES_BY_KEY))}</label>`).join('')}</div>
+        <div class="bike-toggle-group-bikes">${group.bikes.map(bike => `<label><input type="checkbox" value="${escapeHtml(bike.id)}"${hiddenBikeIds.has(bike.id) ? '' : ' checked'}>${escapeHtml(bike.name)}</label>`).join('')}</div>
       </div>`).join('');
   }
   document.getElementById('bike-toggles').addEventListener('click', event => {

@@ -30,9 +30,9 @@ const formatMonthYear = timestamp => {
   return `${String(date.getUTCMonth() + 1).padStart(2, '0')}.${date.getUTCFullYear()}`;
 };
 // A period ({ startTimestamp, endTimestamp }) as "start–end"; an ongoing period ends in "now".
-const formatPeriodDates = (period, separator = '–') => {
+const formatPeriodDates = period => {
   const end = period.endTimestamp === TODAY_TIMESTAMP ? 'now' : formatMonthYear(period.endTimestamp);
-  return `${formatMonthYear(period.startTimestamp)}${separator}${end}`;
+  return `${formatMonthYear(period.startTimestamp)}–${end}`;
 };
 // A period as years only ("2002–2007"), for the chart's bike headers; an ongoing period ends in "now",
 // and a period within one year is just that year.
@@ -184,10 +184,6 @@ function describePartTypes(partTypes) {
     && frontNames.length === rearNames.length && frontNames.every(name => rearNames.includes(name));
   return isFrontAndRearPairs ? `${frontNames.join(' · ')}, front and rear` : partTypes.join(' · ');
 }
-
-// The bike's name, or its type label and number (e.g. "MTB 2") when it has none.
-// bikeTypesByKey maps a bike type ("mtb") to its entry in BIKE_TYPES.
-const displayNameOf = (bike, bikeTypesByKey) => bike.name || `${bikeTypesByKey[bike.type].label} ${bike.numberWithinType}`;
 
 // Fits text into maxLength, shortening it with "…" if needed; measureWidth(text) gives the width of
 // a text. Returns null when not even a few characters fit.
