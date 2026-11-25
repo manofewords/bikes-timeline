@@ -250,7 +250,8 @@
     const allTimestamps = shownParts.flatMap(part => part.mountings.flatMap(mounting => [mounting.startTimestamp, mounting.endTimestamp]));
     const earliestYear = new Date(Math.min(...allTimestamps, TODAY_TIMESTAMP)).getUTCFullYear();
 
-    return { bikes, bikesById, parts: shownParts, bikeTypeGroups, earliestYear };
+    const partsById = Object.fromEntries(shownParts.map(part => [part.id, part]));
+    return { bikes, bikesById, parts: shownParts, partsById, bikeTypeGroups, earliestYear };
   }
 
   // =====================================================================
@@ -636,11 +637,16 @@
     });
   }
 
-  function fillPopup(highlightKey) {
+  // The part or bike that a highlight key ('part:<id>' or 'bike:<id>') stands for, as { part } or { bike };
+  // undefined when it is no longer in the model.
+  function highlightedItemOf(highlightKey) {
     const [highlightKind, highlightedId] = highlightKey.split(/:(.+)/);
-    tooltip.innerHTML = highlightKind === 'part'
-      ? partPopupHtml(timelineModel.parts.find(candidate => candidate.id === highlightedId))
-      : bikePopupHtml(timelineModel.bikesById[highlightedId]);
+    return highlightKind === 'part' ? { part: timelineModel.partsById[highlightedId] } : { bike: timelineModel.bikesById[highlightedId] };
+  }
+
+  function fillPopup(highlightKey) {
+    const { part, bike } = highlightedItemOf(highlightKey);
+    tooltip.innerHTML = part ? partPopupHtml(part) : bikePopupHtml(bike);
     tooltip.style.display = 'block';
     tooltip.style.visibility = '';
   }
@@ -761,17 +767,12 @@
     svg.classList.toggle('has-focus', !!activeHighlightKey);
     if (!activeHighlightKey) return;
 
-    const [highlightKind, highlightedId] = activeHighlightKey.split(/:(.+)/);
     const highlight = selector => svg.querySelectorAll(selector).forEach(element => element.classList.add('is-highlighted'));
-
-    if (highlightKind === 'part') {
-      const part = timelineModel.parts.find(candidate => candidate.id === highlightedId);
-      if (!part) return;
+    const { part, bike } = highlightedItemOf(activeHighlightKey);
+    if (part) {
       highlight(`[data-part-id="${part.id}"]`);
       part.mountings.forEach(mounting => highlight(`.built-bar[data-bike-id="${mounting.bikeId}"]`));
-    } else {
-      const bike = timelineModel.bikesById[highlightedId];
-      if (!bike) return;
+    } else if (bike) {
       highlight(`.built-bar[data-bike-id="${bike.id}"]`);
       bike.partsEverMounted.forEach(part => highlight(`[data-part-id="${part.id}"]`));
     }
