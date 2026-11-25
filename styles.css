@@ -162,6 +162,8 @@ header p { margin: 0; color: var(--text-secondary); max-width: 760px; }
 .tooltip.is-hover-popup { pointer-events: none; }
 .tooltip h4 { margin: 0 0 2px; font-size: 13px; }
 .tooltip-meta { color: var(--text-secondary); margin-bottom: 6px; }
+.tooltip-meta.tooltip-parts-from { margin: 6px 0 0; }
+.tooltip-meta.tooltip-parts-to { margin: 2px 0 0; }
 .tooltip table { border-collapse: collapse; width: 100%; }
 .tooltip td { padding: 2px 8px 2px 0; vertical-align: top; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tooltip td:first-child { color: var(--text-primary); white-space: normal; }

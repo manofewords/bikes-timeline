@@ -107,6 +107,15 @@
   const GAP_BETWEEN_BIKES = 24;
   const GAP_BETWEEN_BIKE_TYPES = 34;
   const YEAR_AXIS_WIDTH = 52;
+  const YEAR_LABEL_GAP = 10;         // space between a year label and the year lines
+  const YEAR_AXIS_TO_FIRST_BAR = 16; // space between the year axis and the first bike bar
+  const RIGHT_PADDING = 24;          // space right of the last bike bar
+  const YEAR_LINE_END_PADDING = 8;   // the year lines stop this far before the right edge
+  const BIKE_TYPE_LABEL_Y = 18;
+  const BIKE_TYPE_RULE_Y = 26;       // the line under a bike type's label
+  const BIKE_HEADER_HOVER_PADDING = 4; // a bike header's hover target reaches this far beyond its bar
+  const MIN_GAP_BETWEEN_BIKE_HEADERS = 10; // a built period may reach into the gap to the next bike, but not closer than this
+  const HEADER_TO_PLOT_GAP = 10;     // space between the bottom of the header and the top of the plot
   const HEADER_HEIGHT = 84;          // at least; taller when bike headers need more lines
   const BIKE_NAME_FIRST_LINE_Y = 46;
   const BIKE_NAME_LINE_HEIGHT = 14;
@@ -345,7 +354,6 @@
   // =====================================================================
 
   function renderChart() {
-    renderPartGroupLegend();
     const chartContainer = document.getElementById('chart-container');
     chartContainer.innerHTML = '';
 
@@ -358,7 +366,7 @@
       .map(group => ({ ...group, bikes: group.bikes.filter(bike => !hiddenBikeIds.has(bike.id)) }))
       .filter(group => group.bikes.length > 0);
     const barWidthOf = bike => screenLaneLayoutByBikeType[bike.type].barWidth;
-    const columns = layoutBikeColumns(shownBikeTypeGroups, YEAR_AXIS_WIDTH + 16, GAP_BETWEEN_BIKES, GAP_BETWEEN_BIKE_TYPES, barWidthOf);
+    const columns = layoutBikeColumns(shownBikeTypeGroups, YEAR_AXIS_WIDTH + YEAR_AXIS_TO_FIRST_BAR, GAP_BETWEEN_BIKES, GAP_BETWEEN_BIKE_TYPES, barWidthOf);
     timelineModel.bikes.forEach(bike => { bike.barLeftX = null; });
     for (const group of shownBikeTypeGroups) {
       Object.assign(group, columns.xRangeByGroup.get(group));
@@ -367,21 +375,21 @@
         bike.barWidth = barWidthOf(bike);
       }
     }
-    const svgWidth = columns.rightX + 24;
+    const svgWidth = columns.rightX + RIGHT_PADDING;
 
     // Header lines of every shown bike; the plot starts below the tallest header.
     const headerLinesByBikeId = {};
     for (const group of shownBikeTypeGroups) {
       group.bikes.forEach((bike, bikeIndex) => {
         const isLastBikeOfGroup = bikeIndex === group.bikes.length - 1;
-        const columnWidth = bike.barWidth + (isLastBikeOfGroup ? 0 : GAP_BETWEEN_BIKES - 10);
+        const columnWidth = bike.barWidth + (isLastBikeOfGroup ? 0 : GAP_BETWEEN_BIKES - MIN_GAP_BETWEEN_BIKE_HEADERS);
         headerLinesByBikeId[bike.id] = bikeHeaderLines(bike, columnWidth);
       });
     }
     const headerBottomY = Math.max(HEADER_HEIGHT, ...Object.values(headerLinesByBikeId).map(({ nameLines, builtPeriodLines }) =>
       BIKE_NAME_FIRST_LINE_Y + (nameLines.length - 1) * BIKE_NAME_LINE_HEIGHT + NAME_TO_BUILT_PERIODS_MIN_GAP
       + builtPeriodLines.length * BUILT_PERIOD_LINE_HEIGHT + BUILT_PERIODS_BOTTOM_PADDING));
-    const plotTopY = headerBottomY + 10;
+    const plotTopY = headerBottomY + HEADER_TO_PLOT_GAP;
     const timestampToY = timestamp => plotTopY + (timelineEndTimestamp - timestamp) / MILLISECONDS_PER_YEAR * pixelsPerYear;
     const svgHeight = timestampToY(timelineStartTimestamp) + BOTTOM_PADDING;
 
@@ -432,10 +440,11 @@
     const yearGrid = createSvgElement('g', { class: 'year-grid' }, svg);
     for (let year = timelineModel.earliestYear; year <= CURRENT_YEAR + 1; year++) {
       const yearStartY = timestampToY(Date.UTC(year, 0, 1));
-      createSvgElement('line', { x1: YEAR_AXIS_WIDTH, x2: svgWidth - 8, y1: yearStartY, y2: yearStartY }, yearGrid);
+      createSvgElement('line', { x1: YEAR_AXIS_WIDTH, x2: svgWidth - YEAR_LINE_END_PADDING, y1: yearStartY, y2: yearStartY }, yearGrid);
       if (year <= CURRENT_YEAR) {
         const midYearY = timestampToY(Date.UTC(year, 6, 1));
-        const yearLabel = createSvgElement('text', { x: YEAR_AXIS_WIDTH - 10, y: midYearY + 4, 'text-anchor': 'end' }, yearGrid);
+        // the label's baseline 4px below the middle of the year centres the text on it
+        const yearLabel = createSvgElement('text', { x: YEAR_AXIS_WIDTH - YEAR_LABEL_GAP, y: midYearY + 4, 'text-anchor': 'end' }, yearGrid);
         yearLabel.textContent = year;
       }
     }
@@ -459,14 +468,17 @@
   function renderBikeHeaders(svg, bikeTypeGroups, headerLinesByBikeId, headerBottomY) {
     const headerLayer = createSvgElement('g', {}, svg);
     for (const group of bikeTypeGroups) {
-      const typeLabel = createSvgElement('text', { class: 'bike-type-label', x: group.leftX, y: 18 }, headerLayer);
+      const typeLabel = createSvgElement('text', { class: 'bike-type-label', x: group.leftX, y: BIKE_TYPE_LABEL_Y }, headerLayer);
       typeLabel.textContent = group.label;
-      createSvgElement('line', { class: 'bike-type-rule', x1: group.leftX, x2: group.rightX, y1: 26, y2: 26 }, headerLayer);
+      createSvgElement('line', { class: 'bike-type-rule', x1: group.leftX, x2: group.rightX, y1: BIKE_TYPE_RULE_Y, y2: BIKE_TYPE_RULE_Y }, headerLayer);
 
       for (const bike of group.bikes) {
         const bikeHeader = createSvgElement('g', { class: 'bike-header', 'data-bike-id': bike.id }, headerLayer);
-        // transparent rect = larger hover target
-        createSvgElement('rect', { x: bike.barLeftX - 4, y: 30, width: bike.barWidth + 8, height: headerBottomY - 26, fill: 'transparent' }, bikeHeader);
+        // transparent rect = larger hover target, from below the bike type's line to just below the header
+        createSvgElement('rect', {
+          x: bike.barLeftX - BIKE_HEADER_HOVER_PADDING, y: BIKE_TYPE_RULE_Y + BIKE_HEADER_HOVER_PADDING,
+          width: bike.barWidth + 2 * BIKE_HEADER_HOVER_PADDING, height: headerBottomY - BIKE_TYPE_RULE_Y, fill: 'transparent',
+        }, bikeHeader);
 
         const { nameLines, builtPeriodLines } = headerLinesByBikeId[bike.id];
         nameLines.forEach((line, lineIndex) => {
@@ -578,8 +590,9 @@
 
   // Width of a text in the chart's font: for the built periods in the bike headers and the part labels in print.
   const textMeasuringContext = document.createElement('canvas').getContext('2d');
+  const chartFontFamily = getComputedStyle(document.querySelector('.viz-root')).fontFamily;
   function measureTextWidth(text, fontSize) {
-    textMeasuringContext.font = `${fontSize}px ${getComputedStyle(document.querySelector('.viz-root')).fontFamily}`;
+    textMeasuringContext.font = `${fontSize}px ${chartFontFamily}`;
     return textMeasuringContext.measureText(text).width;
   }
 
@@ -740,8 +753,8 @@
     return `
       <h4>${escapeHtml(bike.name)}</h4>
       <table>${builtPeriodRows || '<tr><td>never had the full minimum set</td></tr>'}</table>
-      ${bikesPartsCameFrom.size ? `<div class="tooltip-meta" style="margin:6px 0 0">Parts from: ${listNames(bikesPartsCameFrom)}</div>` : ''}
-      ${bikesPartsWentTo.size ? `<div class="tooltip-meta" style="margin:2px 0 0">Parts passed to: ${listNames(bikesPartsWentTo)}</div>` : ''}`;
+      ${bikesPartsCameFrom.size ? `<div class="tooltip-meta tooltip-parts-from">Parts from: ${listNames(bikesPartsCameFrom)}</div>` : ''}
+      ${bikesPartsWentTo.size ? `<div class="tooltip-meta tooltip-parts-to">Parts passed to: ${listNames(bikesPartsWentTo)}</div>` : ''}`;
   }
 
   // Highlights the pinned (or else hovered) part or bike and dims everything else.
@@ -774,6 +787,13 @@
   // Legend, bike checkboxes and table view
   // =====================================================================
 
+  // The legend follows the bike checkboxes and the build settings, so it is drawn again with the chart
+  // when they change (but not when only the zoom changes).
+  function renderLegendAndChart() {
+    renderPartGroupLegend();
+    renderChart();
+  }
+
   // The legend lists only the part types that have a lane on at least one checked bike, so it follows
   // the bike checkboxes and the build settings. A part group with none of them is left out.
   function renderPartGroupLegend() {
@@ -787,13 +807,6 @@
           <span class="color-swatch" style="background:var(--part-group-${groupKey})"></span><span class="part-group-legend-name">${group.label}</span>${escapeHtml(describePartTypes(groupPartTypes))}
         </span>`)
       .join('');
-  }
-
-  // On a small screen the legend and the bike checkboxes start closed, so the chart comes first.
-  const SMALL_SCREEN_QUERY = '(max-width: 600px)'; // same width as the small-screen rules in styles.css
-  if (matchMedia(SMALL_SCREEN_QUERY).matches) {
-    document.getElementById('timeline-legend-section').open = false;
-    document.getElementById('shown-bikes-section').open = false;
   }
 
   // One checkbox per bike, grouped by bike type: an unchecked bike is not drawn (on screen or in print).
@@ -815,13 +828,13 @@
       if (showAll) hiddenBikeIds.delete(checkbox.value);
       else hiddenBikeIds.add(checkbox.value);
     }
-    renderChart();
+    renderLegendAndChart();
   });
   document.getElementById('bike-toggles').addEventListener('change', event => {
     const checkbox = event.target;
     if (checkbox.checked) hiddenBikeIds.delete(checkbox.value);
     else hiddenBikeIds.add(checkbox.value);
-    renderChart();
+    renderLegendAndChart();
   });
 
   function renderPartsTable() {
@@ -844,6 +857,13 @@
   // Loading data and controls
   // =====================================================================
 
+  // On a small screen the legend and the bike checkboxes start closed, so the chart comes first.
+  const SMALL_SCREEN_QUERY = '(max-width: 600px)'; // same width as the small-screen rules in styles.css
+  if (matchMedia(SMALL_SCREEN_QUERY).matches) {
+    document.getElementById('timeline-legend-section').open = false;
+    document.getElementById('shown-bikes-section').open = false;
+  }
+
   function loadData(data) {
     rawData = data;
     const { errors, validBikes, validParts, note } = validateData(data, BIKE_TYPES, PART_TYPES);
@@ -852,7 +872,7 @@
     pinnedHighlightKey = null;
     renderBikeToggles();
     renderPartsTable();
-    renderChart(); // also renders the legend
+    renderLegendAndChart();
   }
 
   const zoomSlider = document.getElementById('zoom-slider');
