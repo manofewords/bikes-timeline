@@ -597,13 +597,13 @@
   }
 
   // =====================================================================
-  // Interaction: tooltip and highlighting
+  // Interaction: popup and highlighting
   // =====================================================================
 
   // A click (or tap) on a part or a bike name highlights it and pins its popup at the click; another click
   // on it, on the popup, on an empty spot or anywhere outside the chart closes both. Hovering with a mouse
   // highlights a part or bike too and shows its popup next to the cursor, while no popup is pinned.
-  const tooltip = document.getElementById('tooltip');
+  const popup = document.getElementById('popup');
   let popupAnchor = null; // { element, offsetX, offsetY }: the click point, relative to the clicked element
 
   function attachHighlightHandlers(element, highlightKey) {
@@ -638,22 +638,22 @@
 
   function fillPopup(highlightKey) {
     const { part, bike } = highlightedItemOf(highlightKey);
-    tooltip.innerHTML = part ? partPopupHtml(part) : bikePopupHtml(bike);
-    tooltip.style.display = 'block';
-    tooltip.style.visibility = '';
+    popup.innerHTML = part ? partPopupHtml(part) : bikePopupHtml(bike);
+    popup.style.display = 'block';
+    popup.style.visibility = '';
   }
 
   // follows the mouse, and lets clicks through to the chart under it
   function showHoverPopup(highlightKey, event) {
     fillPopup(highlightKey);
-    tooltip.classList.add('is-hover-popup');
+    popup.classList.add('is-hover-popup');
     placePopupNextTo(event.clientX, event.clientY);
   }
 
   function openPopup(highlightKey, element, event) {
     pinnedHighlightKey = highlightKey;
     fillPopup(highlightKey);
-    tooltip.classList.remove('is-hover-popup');
+    popup.classList.remove('is-hover-popup');
     const elementBounds = element.getBoundingClientRect();
     popupAnchor = { element, offsetX: event.clientX - elementBounds.left, offsetY: event.clientY - elementBounds.top };
     positionPopup();
@@ -668,7 +668,7 @@
 
   function hidePopup() {
     popupAnchor = null;
-    tooltip.style.display = 'none';
+    popup.style.display = 'none';
   }
 
   // Keeps a pinned popup next to its click point when the page or the chart scrolls. It is hidden while
@@ -684,7 +684,7 @@
     const chartHeaderBottom = document.querySelector('.chart-header > svg').getBoundingClientRect().bottom;
     const visibleTop = anchorIsInBikeHeader ? chartBounds.top : chartHeaderBottom; // the bike header covers the top of the chart
     const anchorIsVisible = anchorX >= chartBounds.left && anchorX <= chartBounds.right && anchorY >= visibleTop && anchorY <= chartBounds.bottom;
-    tooltip.style.visibility = anchorIsVisible ? '' : 'hidden';
+    popup.style.visibility = anchorIsVisible ? '' : 'hidden';
     placePopupNextTo(anchorX, anchorY);
   }
 
@@ -692,21 +692,21 @@
   function placePopupNextTo(anchorX, anchorY) {
     const pointOffset = 10;
     const viewportMargin = 8;
-    const tooltipBounds = tooltip.getBoundingClientRect();
+    const popupBounds = popup.getBoundingClientRect();
     let left = anchorX + pointOffset;
     let top = anchorY + pointOffset;
-    if (left + tooltipBounds.width > innerWidth - viewportMargin) left = anchorX - tooltipBounds.width - pointOffset;
-    if (top + tooltipBounds.height > innerHeight - viewportMargin) top = anchorY - tooltipBounds.height - pointOffset;
-    tooltip.style.left = Math.max(viewportMargin, Math.min(left, innerWidth - viewportMargin - tooltipBounds.width)) + 'px';
-    tooltip.style.top = Math.max(viewportMargin, top) + 'px';
+    if (left + popupBounds.width > innerWidth - viewportMargin) left = anchorX - popupBounds.width - pointOffset;
+    if (top + popupBounds.height > innerHeight - viewportMargin) top = anchorY - popupBounds.height - pointOffset;
+    popup.style.left = Math.max(viewportMargin, Math.min(left, innerWidth - viewportMargin - popupBounds.width)) + 'px';
+    popup.style.top = Math.max(viewportMargin, top) + 'px';
   }
 
-  tooltip.addEventListener('click', closePopup);
+  popup.addEventListener('click', closePopup);
   addEventListener('scroll', positionPopup, { passive: true });
   addEventListener('resize', positionPopup);
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && popupAnchor) closePopup(); });
   document.addEventListener('click', event => {
-    if (!popupAnchor || event.target.closest('#chart-container, #tooltip')) return;
+    if (!popupAnchor || event.target.closest('#chart-container, #popup')) return;
     closePopup();
   });
 
@@ -723,7 +723,7 @@
 
     return `
       <h4><span class="color-swatch" style="background:var(--part-group-${part.partGroup})"></span>${escapeHtml(part.description)}</h4>
-      <div class="tooltip-meta">${escapeHtml(part.type)}</div>
+      <div class="popup-meta">${escapeHtml(part.type)}</div>
       <table>${mountingRows}</table>`;
   }
 
@@ -745,8 +745,8 @@
     return `
       <h4>${escapeHtml(bike.name)}</h4>
       <table>${builtPeriodRows || '<tr><td>never had the full minimum set</td></tr>'}</table>
-      ${bikesPartsCameFrom.size ? `<div class="tooltip-meta tooltip-parts-from">Parts from: ${listNames(bikesPartsCameFrom)}</div>` : ''}
-      ${bikesPartsWentTo.size ? `<div class="tooltip-meta tooltip-parts-to">Parts passed to: ${listNames(bikesPartsWentTo)}</div>` : ''}`;
+      ${bikesPartsCameFrom.size ? `<div class="popup-meta popup-parts-from">Parts from: ${listNames(bikesPartsCameFrom)}</div>` : ''}
+      ${bikesPartsWentTo.size ? `<div class="popup-meta popup-parts-to">Parts passed to: ${listNames(bikesPartsWentTo)}</div>` : ''}`;
   }
 
   // Highlights the pinned (or else hovered) part or bike and dims everything else.

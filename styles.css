@@ -99,7 +99,7 @@ header h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: 
 .chart-header-edge { stroke: var(--axis-line); opacity: 0; transition: opacity .12s; }
 .is-scrolled-down .chart-header-edge { opacity: 1; }
 .print-view .chart-header-edge, .print-view .chart-header-background { display: none; } /* nothing scrolls under it there */
-.controls svg, .tooltip svg { display: inline-block; }
+.controls svg, .popup svg { display: inline-block; }
 .chart-container svg text { fill: var(--text-secondary); font-size: 11px; }
 .year-grid line { stroke: var(--gridline); stroke-width: 1; }
 .year-grid text { fill: var(--text-muted); font-variant-numeric: tabular-nums; }
@@ -120,18 +120,18 @@ header h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: 
 .has-focus .part-ribbon.is-highlighted { stroke-opacity: .75; }
 .has-focus .built-bar:not(.is-highlighted) { opacity: .55; }
 
-.tooltip { position: fixed; z-index: 10; cursor: pointer; background: var(--surface-card); color: var(--text-primary);
+.popup { position: fixed; z-index: 10; cursor: pointer; background: var(--surface-card); color: var(--text-primary);
   border: 1px solid var(--axis-line); border-radius: 10px; padding: 10px 12px; font-size: 12px; max-width: 340px;
   box-shadow: 0 6px 24px rgba(0,0,0,.14); display: none; }
-.tooltip.is-hover-popup { pointer-events: none; }
-.tooltip h4 { margin: 0 0 2px; font-size: 13px; }
-.tooltip-meta { color: var(--text-secondary); margin-bottom: 6px; }
-.tooltip-meta.tooltip-parts-from { margin: 6px 0 0; }
-.tooltip-meta.tooltip-parts-to { margin: 2px 0 0; }
-.tooltip table { border-collapse: collapse; width: 100%; }
-.tooltip td { padding: 2px 8px 2px 0; vertical-align: top; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tooltip td:first-child { color: var(--text-primary); white-space: normal; }
-.tooltip .color-swatch { width: 8px; height: 8px; vertical-align: 0; }
+.popup.is-hover-popup { pointer-events: none; }
+.popup h4 { margin: 0 0 2px; font-size: 13px; }
+.popup-meta { color: var(--text-secondary); margin-bottom: 6px; }
+.popup-meta.popup-parts-from { margin: 6px 0 0; }
+.popup-meta.popup-parts-to { margin: 2px 0 0; }
+.popup table { border-collapse: collapse; width: 100%; }
+.popup td { padding: 2px 8px 2px 0; vertical-align: top; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.popup td:first-child { color: var(--text-primary); white-space: normal; }
+.popup .color-swatch { width: 8px; height: 8px; vertical-align: 0; }
 
 details { margin-top: 20px; background: var(--surface-card); border-radius: 12px; padding: 12px 16px; }
 summary { cursor: pointer; font-weight: 600; list-style: none; }
@@ -158,7 +158,7 @@ details[open] > summary::before { transform: rotate(45deg); vertical-align: 0.25
   .settings-dialog { width: calc(100vw - 16px); max-width: none; }
   .settings-dialog-header, .settings-sections { padding-left: 14px; padding-right: 14px; }
   .settings-dialog-footer { padding: 10px 14px 12px; }
-  .tooltip { max-width: calc(100vw - 16px); }
+  .popup { max-width: calc(100vw - 16px); }
 }
 
 /* ---------- print: the same chart in the light theme, with each part's description in its lane ---------- */
@@ -171,7 +171,7 @@ details[open] > summary::before { transform: rotate(45deg); vertical-align: 0.25
   /* one page of any size: no title, the chart takes the whole page height and is scaled to fit it */
   .viz-root { display: flex; flex-direction: column; height: 100vh; min-height: 0; padding: 0; background: #fff;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .viz-root > header, .controls, .chart-option-section, .data-errors, #parts-table-details, .tooltip, .settings-dialog { display: none !important; }
+  .viz-root > header, .controls, .chart-option-section, .data-errors, #parts-table-details, .popup, .settings-dialog { display: none !important; }
   .chart-container { flex: 1; min-height: 0; overflow: hidden; max-height: none; border-radius: 0; background: #fff; }
   .chart-container > svg { width: 100%; height: 100%; } /* keeps its proportions: preserveAspectRatio in timeline.js */
   /* the header SVG is scaled like the chart: the chart fits the container's width or height, whichever comes first */
