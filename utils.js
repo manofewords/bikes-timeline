@@ -211,16 +211,14 @@ const REQUIRED_PART_FIELDS = ['id', 'type', 'description', 'usage'];
 const REQUIRED_USAGE_FIELDS = ['bikeId', 'dateFrom', 'dateTo'];
 
 // Returns every error found, and the bikes and parts that can be processed: those with all
-// required fields and a known type. Everything else (duplicate ids, overlapping dates, two
-// parts of one type on a bike at once) is reported but still processed. A usage on a bike that
+// required fields and a known type. Everything else (duplicate ids, overlapping dates) is
+// reported but still processed. A usage on a bike that
 // isn't in the data or was left out is reported, and left out later in buildTimelineModel().
 // A usage date may be null (a date still to be found out): the part is then skipped later
 // without an error, see buildTimelineModel().
-// bikeTypes: the bike types with their lanePartTypes (BIKE_TYPES in timeline.js);
-// partTypes: every known part type (PART_TYPES).
+// bikeTypes: the bike types (BIKE_TYPES in timeline.js); partTypes: every known part type (PART_TYPES).
 function validateData(data, bikeTypes, partTypes) {
   const bikeTypesByKey = Object.fromEntries(bikeTypes.map(bikeType => [bikeType.type, bikeType]));
-  const ignoredPartTypes = new Set(partTypesIgnoredOnEveryBikeType(bikeTypes, partTypes));
   const errors = [];
   if (data === null || typeof data !== 'object' || !Array.isArray(data.bikes) || !Array.isArray(data.parts)) {
     errors.push('The JSON has to be an object with a "bikes" list and a "parts" list');
@@ -312,36 +310,30 @@ function validateData(data, bikeTypes, partTypes) {
     }
   }
 
-  // Usages on a bike that isn't in the data (or was left out above), and two parts of the same
-  // type on one bike at the same time: each part type has one lane, so they would be drawn on
-  // top of each other. Only parts that are drawn are compared, like in buildTimelineModel():
-  // not parts with a null date, not part types ignored on every bike type, and not part types
-  // without a lane on that bike's type. Back-to-back usages of one part on the same bike count
-  // as one mounting.
-  const bikeTypeByBikeId = new Map(validBikes.map(bike => [String(bike.id), bikeTypesByKey[bike.type]]));
-  const datedMountingsByBikeId = new Map(validBikes.map(bike => [String(bike.id), []]));
+  // Usages on a bike that isn't in the data, or was left out above. Two parts of the same type on a
+  // bike at once are found later, on the mountings that are drawn: see findOverlappingPartsOfOneType().
+  const validBikeIds = new Set(validBikes.map(bike => String(bike.id)));
   for (const part of validParts) {
-    const isDrawn = !ignoredPartTypes.has(part.type)
-      && part.usage.every(usage => usage.dateFrom != null && usage.dateTo != null);
-    const datedMountings = [];
     for (const usage of part.usage) {
-      if (!datedMountingsByBikeId.has(String(usage.bikeId))) {
-        errors.push(`Part "${part.description}" references unknown bike ${usage.bikeId}`);
-        continue;
-      }
-      const bikeType = bikeTypeByBikeId.get(String(usage.bikeId));
-      if (!isDrawn || !bikeType.lanePartTypes.includes(part.type)) continue;
-      datedMountings.push({ bikeId: String(usage.bikeId), startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) });
+      if (!validBikeIds.has(String(usage.bikeId))) errors.push(`Part "${part.description}" references unknown bike ${usage.bikeId}`);
     }
-    mergeBackToBackMountings(datedMountings)
-      .forEach(mounting => datedMountingsByBikeId.get(mounting.bikeId).push({ ...mounting, part }));
   }
-  for (const bike of validBikes) {
+
+  return { errors, validBikes, validParts };
+}
+
+// Two parts of the same type on one bike at the same time: each part type has one lane, so they are
+// drawn on top of each other. Takes the bikes of the model ({ name, mountings }), whose mountings
+// ({ part: { type, description }, startTimestamp, endTimestamp }) are the ones that are drawn, with
+// back-to-back mountings of one part already merged. Returns one error per mounting that overlaps.
+function findOverlappingPartsOfOneType(bikes) {
+  const errors = [];
+  for (const bike of bikes) {
     const mountingsByPartType = {};
-    datedMountingsByBikeId.get(String(bike.id)).forEach(mounting => (mountingsByPartType[mounting.part.type] ||= []).push(mounting));
+    bike.mountings.forEach(mounting => (mountingsByPartType[mounting.part.type] ||= []).push(mounting));
     for (const partType in mountingsByPartType) {
       let occupiedUntil = -Infinity;
-      const mountingsInOrder = mountingsByPartType[partType].sort((first, second) => first.startTimestamp - second.startTimestamp);
+      const mountingsInOrder = [...mountingsByPartType[partType]].sort((first, second) => first.startTimestamp - second.startTimestamp);
       for (const mounting of mountingsInOrder) {
         if (mounting.startTimestamp < occupiedUntil) {
           errors.push(`${bike.name}: two × ${partType} at ${formatIsoDate(mounting.startTimestamp)} (${mounting.part.description})`);
@@ -350,6 +342,5 @@ function validateData(data, bikeTypes, partTypes) {
       }
     }
   }
-
-  return { errors, validBikes, validParts };
+  return errors;
 }

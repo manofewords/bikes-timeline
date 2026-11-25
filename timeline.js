@@ -223,7 +223,7 @@
         return true;
       });
       // Every part type has exactly one lane. Two parts of the same type on one bike at the same time
-      // are a data problem: they're reported by validateData() and drawn on top of each other.
+      // are a data problem: they're reported by findOverlappingPartsOfOneType() and drawn on top of each other.
       const laneIndex = laneIndexByPartType[part.type];
       part.mountings = mergeBackToBackMountings(drawnMountings).map(mounting => ({ ...mounting, part, laneIndex }));
       part.mountings.forEach(mounting => bikesById[mounting.bikeId].mountings.push(mounting));
@@ -863,8 +863,8 @@
   function loadData(data) {
     rawData = data;
     const { errors, validBikes, validParts, note } = validateData(data, BIKE_TYPES, PART_TYPES);
-    showDataErrors(errors, note);
     timelineModel = buildTimelineModel({ bikes: validBikes, parts: validParts });
+    showDataErrors([...errors, ...findOverlappingPartsOfOneType(timelineModel.bikes)], note);
     pinnedHighlightKey = null;
     renderBikeToggles();
     renderPartsTable();

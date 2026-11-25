@@ -255,26 +255,24 @@ test('validateData: a part on two bikes at once, or twice on one bike', () => {
     parts: [
       testPart('p1', 'frame', 'Frame', testUsage('b1', '2014-01-01', '2016-01-01'), testUsage('b2', '2015-01-01', '2017-01-01')),
       testPart('p2', 'fork', 'Fork', testUsage('b1', '2014-01-01', '2016-01-01'), testUsage('b1', '2015-01-01', '2017-01-01')),
-      testPart('p3', 'fork', 'Fork from Mongoose', testUsage('b2', '2014-01-01', '2015-01-01'), testUsage('b1', '2015-01-01', '2016-01-01')),
     ],
   }), [
     'Part "Frame" (id p1) is on two bikes at once: Haro 2014-01-01 → 2016-01-01 and Mongoose 2015-01-01 → 2017-01-01',
     'Part "Fork" (id p2) has overlapping usage dates: Haro 2014-01-01 → 2016-01-01 and Haro 2015-01-01 → 2017-01-01',
-    'Haro: two × fork at 2015-01-01 (Fork from Mongoose)',
   ]);
 });
-test('validateData: two parts of one type on a bike at once, only for drawn parts', () => {
-  assertEqual(validationErrorsOf({
-    bikes: [testBike('b1', 'Haro')],
-    parts: [
-      testPart('p1', 'frame', 'First frame', testUsage('b1', '2014-01-01', '2016-01-01')),
-      testPart('p2', 'frame', 'Second frame', testUsage('b1', '2015-01-01', '2017-01-01')),
-      testPart('p3', 'frame', 'Next frame', testUsage('b1', '2017-01-01', '2018-01-01')), // starts as the second one ends
-      testPart('p4', 'frame', 'Frame with a null date', testUsage('b1', '2015-06-01', null)),
-      testPart('p5', 'seat', 'First seat', testUsage('b1', '2014-01-01', '2016-01-01')), // seat: ignored on every bike type
-      testPart('p6', 'seat', 'Second seat', testUsage('b1', '2015-01-01', '2017-01-01')),
-    ],
-  }), ['Haro: two × frame at 2015-01-01 (Second frame)']);
+test('findOverlappingPartsOfOneType: two parts of one type on a bike at once', () => {
+  const mounting = (partType, description, dateFrom, dateTo) => ({ part: { type: partType, description }, ...makePeriod(dateFrom, dateTo) });
+  assertEqual(findOverlappingPartsOfOneType([
+    { name: 'Haro', mountings: [
+      mounting('frame', 'First frame', '2014-01-01', '2016-01-01'),
+      mounting('fork', 'Fork', '2014-06-01', '2016-01-01'), // another type
+      mounting('frame', 'Next frame', '2017-01-01', '2018-01-01'), // starts as the second one ends
+      mounting('frame', 'Second frame', '2015-01-01', '2017-01-01'),
+    ] },
+    { name: 'Mongoose', mountings: [mounting('frame', 'Mongoose frame', '2015-01-01', '2017-01-01')] }, // another bike
+  ]), ['Haro: two × frame at 2015-01-01 (Second frame)']);
+  assertEqual(findOverlappingPartsOfOneType([{ name: 'Haro', mountings: [] }]), []);
 });
 
 const summary = document.getElementById('summary');
