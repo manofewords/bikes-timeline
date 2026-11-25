@@ -1,4 +1,4 @@
-// Unit tests for utils.js. Open test.html (straight from disk, like index.html) to see the results.
+// Unit tests for utils.js. Open test.html through the local web server, like index.html, to see the results.
 
 let passedCount = 0,
   failedCount = 0;

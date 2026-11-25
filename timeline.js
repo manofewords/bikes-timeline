@@ -228,7 +228,7 @@
   }
 
   // =====================================================================
-  // DOM helpers (the date, text and colour helpers are in utils.js)
+  // DOM helpers (the helpers that don't need the page are in utils.js)
   // =====================================================================
 
   const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -451,7 +451,7 @@
       const dates = formatPeriodYears(period);
       const duration = formatDuration(period.endTimestamp - period.startTimestamp);
       const oneLine = `${dates} · ${duration}`;
-      return measureLabelWidth(oneLine, BUILT_PERIOD_FONT_SIZE) <= columnWidth ? [oneLine] : [dates, duration];
+      return measureTextWidth(oneLine, BUILT_PERIOD_FONT_SIZE) <= columnWidth ? [oneLine] : [dates, duration];
     });
     return { nameLines, builtPeriodLines };
   }
@@ -562,7 +562,7 @@
         }, segmentLayer);
         attachHighlightHandlers(segment, 'part:' + part.id);
 
-        const labelText = fitTextIntoLength(part.description, bottomY - topY - 2 * PART_LABEL_END_PADDING, text => measureLabelWidth(text, PART_LABEL_FONT_SIZE));
+        const labelText = fitTextIntoLength(part.description, bottomY - topY - 2 * PART_LABEL_END_PADDING, text => measureTextWidth(text, PART_LABEL_FONT_SIZE));
         if (!labelText) continue;
         // Rotated -90°: the text reads bottom to top and its glyphs extend to the left of the baseline.
         const baselineX = laneLeftX + LANE_WIDTH / 2 + PART_LABEL_FONT_SIZE * 0.36;
@@ -576,9 +576,9 @@
     return labelLayer;
   }
 
-  // Width of a part label in the chart's font, for shortening it to fit its strip.
+  // Width of a text in the chart's font: for the built periods in the bike headers and the part labels in print.
   const textMeasuringContext = document.createElement('canvas').getContext('2d');
-  function measureLabelWidth(text, fontSize) {
+  function measureTextWidth(text, fontSize) {
     textMeasuringContext.font = `${fontSize}px ${getComputedStyle(document.querySelector('.viz-root')).fontFamily}`;
     return textMeasuringContext.measureText(text).width;
   }
@@ -771,7 +771,7 @@
   }
 
   // =====================================================================
-  // Summary legends and table view
+  // Legend, bike checkboxes and table view
   // =====================================================================
 
   // The legend lists only the part types that have a lane on at least one checked bike, so it follows
@@ -787,11 +787,6 @@
           <span class="color-swatch" style="background:var(--part-group-${groupKey})"></span><span class="part-group-legend-name">${group.label}</span>${escapeHtml(describePartTypes(groupPartTypes))}
         </span>`)
       .join('');
-  }
-
-  function renderSummaryAndLegends() {
-    renderBikeToggles();
-    renderPartsTable();
   }
 
   // On a small screen the legend and the bike checkboxes start closed, so the chart comes first.
@@ -855,8 +850,9 @@
     showDataErrors(errors, note);
     timelineModel = buildTimelineModel({ bikes: validBikes, parts: validParts });
     pinnedHighlightKey = null;
-    renderSummaryAndLegends();
-    renderChart();
+    renderBikeToggles();
+    renderPartsTable();
+    renderChart(); // also renders the legend
   }
 
   const zoomSlider = document.getElementById('zoom-slider');
