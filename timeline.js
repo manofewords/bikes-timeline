@@ -69,15 +69,15 @@
   const ROAD_LANES = [...GRAVEL_LANES]; // starts out like gravel
 
   // Listed in the order the bike type groups appear along the x axis.
-  // label: on the chart; name: in sentences.
+  // name: in sentences, and in capitals as the bike type's label (chart, bike checkboxes, build settings).
   // lanePartTypes and optionalPartTypes are replaced when the build settings dialog is closed.
   const BIKE_TYPES = [
-    { type: 'bmx',    label: 'BMX',    name: 'BMX',    lanePartTypes: BMX_LANES,    optionalPartTypes: ['rear brake', 'rear brake lever'] }, // brakeless BMX allowed
-    { type: 'mtb',    label: 'MTB',    name: 'MTB',    lanePartTypes: MTB_LANES,    optionalPartTypes: ['shock'] }, // hardtails allowed
-    { type: 'dh',     label: 'DH',     name: 'DH',     lanePartTypes: DH_LANES,     optionalPartTypes: [] },
-    { type: 'gravel', label: 'GRAVEL', name: 'gravel', lanePartTypes: GRAVEL_LANES, optionalPartTypes: [] },
-    { type: 'commuter', label: 'COMMUTER', name: 'commuter', lanePartTypes: COMMUTER_LANES, optionalPartTypes: ['front brake', 'front brake lever', 'rear brake', 'rear brake lever'] },
-    { type: 'road',   label: 'ROAD',   name: 'road',   lanePartTypes: ROAD_LANES,   optionalPartTypes: [] },
+    { type: 'bmx',      name: 'BMX',      lanePartTypes: BMX_LANES,      optionalPartTypes: ['rear brake', 'rear brake lever'] }, // brakeless BMX allowed
+    { type: 'mtb',      name: 'MTB',      lanePartTypes: MTB_LANES,      optionalPartTypes: ['shock'] }, // hardtails allowed
+    { type: 'dh',       name: 'DH',       lanePartTypes: DH_LANES,       optionalPartTypes: [] },
+    { type: 'gravel',   name: 'gravel',   lanePartTypes: GRAVEL_LANES,   optionalPartTypes: [] },
+    { type: 'commuter', name: 'commuter', lanePartTypes: COMMUTER_LANES, optionalPartTypes: ['front brake', 'front brake lever', 'rear brake', 'rear brake lever'] },
+    { type: 'road',     name: 'road',     lanePartTypes: ROAD_LANES,     optionalPartTypes: [] },
   ];
   const BIKE_TYPES_BY_KEY = Object.fromEntries(BIKE_TYPES.map(bikeType => [bikeType.type, bikeType]));
   const requiredPartTypesFor = bikeType =>
@@ -372,7 +372,7 @@
     const headerLayer = createSvgElement('g', {}, svg);
     for (const group of bikeTypeGroups) {
       const typeLabel = createSvgElement('text', { class: 'bike-type-label', x: group.leftX, y: BIKE_TYPE_LABEL_Y }, headerLayer);
-      typeLabel.textContent = group.label;
+      typeLabel.textContent = group.name.toUpperCase();
       createSvgElement('line', { class: 'bike-type-rule', x1: group.leftX, x2: group.rightX, y1: BIKE_TYPE_RULE_Y, y2: BIKE_TYPE_RULE_Y }, headerLayer);
 
       for (const bike of group.bikes) {
@@ -808,7 +808,7 @@
   function renderBikeToggles() {
     const bikeToggles = document.getElementById('bike-toggles');
     bikeToggles.innerHTML = timelineModel.bikeTypeGroups.map(group => `<div class="bike-toggle-group">
-        <div><button type="button" class="bike-toggle-group-name" title="Show or hide all ${escapeHtml(group.name)} bikes">${escapeHtml(group.label)}</button></div>
+        <div><button type="button" class="bike-toggle-group-name" title="Show or hide all ${escapeHtml(group.name)} bikes">${escapeHtml(group.name.toUpperCase())}</button></div>
         <div class="bike-toggle-group-bikes">${group.bikes.map(bike => `<label><input type="checkbox" value="${escapeHtml(bike.id)}"${hiddenBikeIds.has(bike.id) ? '' : ' checked'}>${escapeHtml(bike.name)}</label>`).join('')}</div>
       </div>`).join('');
   }
@@ -925,7 +925,7 @@
           </tbody>`;
       }).join('');
       return `<section class="settings-section">
-          <h3>${escapeHtml(bikeType.label)}</h3>
+          <h3>${escapeHtml(bikeType.name.toUpperCase())}</h3>
           <table class="settings-table">
             <thead><tr><th>Part type</th>${PART_REQUIREMENTS.map(requirement => `<th scope="col"><button type="button"
               class="settings-column-button" data-requirement="${requirement}"
