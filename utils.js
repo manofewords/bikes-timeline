@@ -1,5 +1,6 @@
-// Helpers with no state of their own and no access to the page: dates, mountings, built periods,
-// layout, text and data validation. They get everything they need as parameters, so test.js can test them.
+// Helpers with no state of their own that don't touch the page (only TODAY_TIMESTAMP reads its address):
+// dates, mountings, built periods, layout, text and data validation. They get everything they need as
+// parameters, so test.js can test them.
 // Loaded with a plain <script> tag before timeline.js (and by test.html), so everything here is global.
 
 // =====================================================================

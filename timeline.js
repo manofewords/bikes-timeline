@@ -257,7 +257,8 @@
     const timelineStartTimestamp = Date.UTC(timelineModel.earliestYear, 0, 1);
     const timelineEndTimestamp = Date.UTC(CURRENT_YEAR + 1, 0, 1);
 
-    // Horizontal position of every shown bike bar. Hidden bikes get no position, so nothing is drawn on them and no ribbon goes to or from them.
+    // Horizontal position of every shown bike bar. Hidden bikes get no position, so nothing is drawn
+    // on them and no ribbon goes to or from them.
     const shownBikeTypeGroups = timelineModel.bikeTypeGroups
       .map(group => ({ ...group, bikes: group.bikes.filter(bike => !hiddenBikeIds.has(bike.id)) }))
       .filter(group => group.bikes.length > 0);
@@ -303,7 +304,7 @@
     svg.appendChild(partLabelLayer); // on top of the dots
 
     svg.addEventListener('click', event => { if (event.target === svg) closePopup(); });
-    renderChartHeader(chartContainer, shownBikeTypeGroups, headerLinesByBikeId, headerBottomY, svgWidth, svgHeight, plotTopY);
+    renderChartHeader(shownBikeTypeGroups, headerLinesByBikeId, headerBottomY, svgWidth, svgHeight);
     applyHighlight();
     positionPopup(); // closes it: its part or bike was drawn again
   }
@@ -312,7 +313,9 @@
   // space the chart leaves at its top (same coordinates). On screen it stays at the top of the chart
   // while it scrolls down (position: sticky) and scrolls sideways with it; in print it is scaled
   // like the chart (see styles.css, which gets the chart's proportions from --chart-aspect-ratio).
-  function renderChartHeader(chartContainer, bikeTypeGroups, headerLinesByBikeId, headerBottomY, svgWidth, svgHeight, plotTopY) {
+  function renderChartHeader(bikeTypeGroups, headerLinesByBikeId, headerBottomY, svgWidth, svgHeight) {
+    const chartContainer = document.getElementById('chart-container');
+    const plotTopY = headerBottomY + HEADER_TO_PLOT_GAP;
     const chartHeaderHeight = plotTopY - 2; // leaves the line of next year at the top of the plot visible
     const chartHeader = document.createElement('div');
     chartHeader.className = 'chart-header';
@@ -732,13 +735,12 @@
 
     const bikesPartsCameFrom = new Set();
     const bikesPartsWentTo = new Set();
-    for (const mounting of bike.mountings) {
-      const partMountings = mounting.part.mountings;
-      const mountingIndex = partMountings.indexOf(mounting);
-      const previousMounting = partMountings[mountingIndex - 1];
-      const nextMounting = partMountings[mountingIndex + 1];
-      if (previousMounting && previousMounting.bikeId !== bike.id) bikesPartsCameFrom.add(timelineModel.bikesById[previousMounting.bikeId].name);
-      if (nextMounting && nextMounting.bikeId !== bike.id) bikesPartsWentTo.add(timelineModel.bikesById[nextMounting.bikeId].name);
+    for (const part of bike.partsEverMounted) {
+      for (const [previousMounting, nextMounting] of consecutivePairs(part.mountings)) {
+        if (previousMounting.bikeId === nextMounting.bikeId) continue;
+        if (nextMounting.bikeId === bike.id) bikesPartsCameFrom.add(timelineModel.bikesById[previousMounting.bikeId].name);
+        if (previousMounting.bikeId === bike.id) bikesPartsWentTo.add(timelineModel.bikesById[nextMounting.bikeId].name);
+      }
     }
     const listNames = names => [...names].map(escapeHtml).join(', ');
 
