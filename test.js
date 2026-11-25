@@ -79,6 +79,35 @@ test('formatDuration: months under a year, at least 1', () => {
   assertEqual(formatDuration(durationBetween('2014-01-01', '2015-01-01')), '12 mo');
 });
 
+// a mounting as the timeline builds it from a usage entry
+const makeMounting = (bikeId, dateFrom, dateTo) => ({ bikeId, ...makePeriod(dateFrom, dateTo) });
+test('mergeBackToBackMountings: back-to-back and overlapping mountings on one bike become one', () => {
+  assertEqual(mergeBackToBackMountings([makeMounting('a', '2014-01-01', '2015-01-01'), makeMounting('a', '2015-01-01', '2016-01-01')]),
+    [makeMounting('a', '2014-01-01', '2016-01-01')]);
+  assertEqual(mergeBackToBackMountings([makeMounting('a', '2014-01-01', '2016-01-01'), makeMounting('a', '2015-01-01', '2015-06-01')]),
+    [makeMounting('a', '2014-01-01', '2016-01-01')]);
+});
+test('mergeBackToBackMountings: a gap or another bike in between keeps them apart', () => {
+  const withGap = [makeMounting('a', '2014-01-01', '2015-01-01'), makeMounting('a', '2015-01-02', '2016-01-01')];
+  assertEqual(mergeBackToBackMountings(withGap), withGap);
+  const onTwoBikes = [makeMounting('a', '2014-01-01', '2015-01-01'), makeMounting('b', '2015-01-01', '2016-01-01')];
+  assertEqual(mergeBackToBackMountings(onTwoBikes), onTwoBikes);
+});
+test('mergeBackToBackMountings: sorted by date, keeps the first one\'s fields, leaves its input alone', () => {
+  const later = { ...makeMounting('a', '2015-01-01', '2016-01-01'), note: 'later' };
+  const earlier = { ...makeMounting('a', '2014-01-01', '2015-01-01'), note: 'earlier' };
+  const mountings = [later, earlier];
+  assertEqual(mergeBackToBackMountings(mountings), [{ ...makeMounting('a', '2014-01-01', '2016-01-01'), note: 'earlier' }]);
+  assertEqual(mountings, [later, earlier]);
+  assertEqual(earlier.endTimestamp, parseDate('2015-01-01'));
+  assertEqual(mergeBackToBackMountings([]), []);
+});
+test('consecutivePairs', () => {
+  assertEqual(consecutivePairs(['a', 'b', 'c']), [['a', 'b'], ['b', 'c']]);
+  assertEqual(consecutivePairs(['a']), []);
+  assertEqual(consecutivePairs([]), []);
+});
+
 test('escapeHtml', () => {
   assertEqual(escapeHtml(`<a href="x">Tom & Jerry</a>`), '&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&lt;/a&gt;');
   assertEqual(escapeHtml(`Haro Backtrail X1 frame 20.5" it's`), 'Haro Backtrail X1 frame 20.5&quot; it\'s');

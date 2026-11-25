@@ -1,4 +1,4 @@
-// Small helpers with no state of their own: dates and text.
+// Small helpers with no state of their own: dates, mountings and text.
 // Loaded with a plain <script> tag before timeline.js (and by test.html), so everything here is global.
 
 // =====================================================================
@@ -46,6 +46,29 @@ const formatDuration = durationMs => {
   const years = durationMs / MILLISECONDS_PER_YEAR;
   return years >= 1 ? `${years.toFixed(1)} y` : `${Math.max(1, Math.round(durationMs / MILLISECONDS_PER_MONTH))} mo`;
 };
+
+// =====================================================================
+// Mountings: the periods a part spent on a bike
+// =====================================================================
+
+// Mountings ({ bikeId, startTimestamp, endTimestamp, … }) in date order, with back-to-back or
+// overlapping mountings on the same bike merged into one, which keeps the fields of the first.
+// The mountings passed in are not changed.
+function mergeBackToBackMountings(mountings) {
+  const mergedMountings = [];
+  for (const mounting of [...mountings].sort((first, second) => first.startTimestamp - second.startTimestamp)) {
+    const previousMounting = mergedMountings[mergedMountings.length - 1];
+    const continuesOnSameBike = previousMounting
+      && previousMounting.bikeId === mounting.bikeId
+      && mounting.startTimestamp <= previousMounting.endTimestamp;
+    if (continuesOnSameBike) previousMounting.endTimestamp = Math.max(previousMounting.endTimestamp, mounting.endTimestamp);
+    else mergedMountings.push({ ...mounting });
+  }
+  return mergedMountings;
+}
+
+// Each item with the one after it: [a, b, c] gives [[a, b], [b, c]].
+const consecutivePairs = items => items.slice(1).map((item, index) => [items[index], item]);
 
 // =====================================================================
 // Text

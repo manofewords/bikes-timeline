@@ -48,6 +48,13 @@
     { partType: 'seat clamp',        partGroup: 'seat' },
     { partType: 'seat',              partGroup: 'seat' },
   ];
+  // Every known part type, in lane order. A part of any other type is reported by validateData().
+  const PART_TYPES = LANE_DEFINITIONS.map(lane => lane.partType);
+  // part type -> its lane index in LANE_DEFINITIONS
+  const laneIndexByPartType = Object.fromEntries(PART_TYPES.map((partType, laneIndex) => [partType, laneIndex]));
+  const partGroupByPartType = Object.fromEntries(LANE_DEFINITIONS.map(lane => [lane.partType, lane.partGroup]));
+  // The part types of a part group, in lane order.
+  const partTypesOfGroup = partGroup => LANE_DEFINITIONS.filter(lane => lane.partGroup === partGroup).map(lane => lane.partType);
 
   // Default lanes per bike type. A bike counts as "built" while every one of its type's lanes
   // is filled, except the optional ones. The build settings dialog (gear button) can change this.
@@ -76,18 +83,14 @@
   const requiredPartTypesFor = bikeType =>
     bikeType.lanePartTypes.filter(partType => !bikeType.optionalPartTypes.includes(partType));
 
-  // Rows of the build settings dialog: every lane, grouped by part group in lane order.
-  // Each one is mandatory, optional or ignored per bike type: mandatory and optional parts
-  // get a lane, ignored parts don't.
-  const CONFIGURABLE_PART_TYPES = LANE_DEFINITIONS.map(lane => lane.partType);
+  // In the build settings dialog, each part type is mandatory, optional or ignored per bike type:
+  // mandatory and optional parts get a lane, ignored parts don't.
   const PART_REQUIREMENTS = ['mandatory', 'optional', 'ignored'];
   const partRequirementFor = (bikeType, partType) =>
     !bikeType.lanePartTypes.includes(partType) ? 'ignored'
       : bikeType.optionalPartTypes.includes(partType) ? 'optional' : 'mandatory';
 
   // Part types that are ignored on every bike type are skipped without a warning.
-  // Anything that is not a lane type is reported by validateData().
-  const KNOWN_PART_TYPES = new Set(LANE_DEFINITIONS.map(lane => lane.partType));
   let silentlySkippedPartTypes; // set by applyBikeTypeSettings()
   // =====================================================================
   // Layout (all values in pixels)
@@ -140,13 +143,16 @@
 
   const SCREEN_LANE_SPACING = { laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING, minBarWidth: MIN_BAR_WIDTH };
   let screenLaneLayoutByBikeType; // set by applyBikeTypeSettings()
+  // Left x of a lane of a placed bike on the chart, or null for a bike that is not placed (hidden or of an unknown type).
+  const laneLeftXOf = (bike, laneIndex) =>
+    bike.barLeftX == null ? null : bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[laneIndex];
 
   // Recomputes everything that depends on the lanes of each bike type. Call it after changing
   // lanePartTypes or optionalPartTypes, then rebuild the model.
   function applyBikeTypeSettings() {
     screenLaneLayoutByBikeType = Object.fromEntries(
       BIKE_TYPES.map(bikeType => [bikeType.type, computeLaneLayout(bikeType, SCREEN_LANE_SPACING)]));
-    const partTypesIgnoredOnEveryBikeType = CONFIGURABLE_PART_TYPES
+    const partTypesIgnoredOnEveryBikeType = PART_TYPES
       .filter(partType => BIKE_TYPES.every(bikeType => !bikeType.lanePartTypes.includes(partType)));
     silentlySkippedPartTypes = new Set(partTypesIgnoredOnEveryBikeType);
   }
@@ -194,9 +200,7 @@
     // Group departures by (old bike, date): everything leaving a bike together shares one set of tracks.
     const departureGroups = new Map();
     for (const part of timelineModel.parts) {
-      for (let index = 0; index < part.mountings.length - 1; index++) {
-        const previousMounting = part.mountings[index];
-        const nextMounting = part.mountings[index + 1];
+      for (const [previousMounting, nextMounting] of consecutivePairs(part.mountings)) {
         if (previousMounting.bikeId === nextMounting.bikeId) continue; // same-bike breaks are drawn as storage links
         const startX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
         const endX = laneCenterX(nextMounting.bikeId, nextMounting.laneIndex);
@@ -243,10 +247,6 @@
 
     return { ribbons, departureDots };
   }
-
-  // part type -> its lane index in LANE_DEFINITIONS
-  const laneIndexByPartType = Object.fromEntries(LANE_DEFINITIONS.map((lane, laneIndex) => [lane.partType, laneIndex]));
-  const partGroupByPartType = Object.fromEntries(LANE_DEFINITIONS.map(lane => [lane.partType, lane.partGroup]));
 
   // =====================================================================
   // DOM helpers (the date, text and colour helpers are in utils.js)
@@ -348,7 +348,7 @@
       .filter(bike => !BIKE_TYPES_BY_KEY[bike.type])
       .forEach(bike => errors.push(`${withId(bikeLabel(bike), bike)} has unknown bike type "${bike.type}" (known: ${BIKE_TYPES.map(bikeType => bikeType.type).join(', ')})`));
     const validParts = partsWithAllFields.filter(part => {
-      if (KNOWN_PART_TYPES.has(part.type)) return true;
+      if (PART_TYPES.includes(part.type)) return true;
       errors.push(`${withId(partLabel(part), part)} has unknown part type "${part.type}"`);
       return false;
     });
@@ -396,17 +396,8 @@
         if (!isDrawn || (bikeType && !bikeType.lanePartTypes.includes(part.type))) continue;
         datedMountings.push({ bikeId: String(usage.bikeId), startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) });
       }
-      datedMountings.sort((first, second) => first.startTimestamp - second.startTimestamp);
-      const mergedMountings = [];
-      for (const mounting of datedMountings) {
-        const previousMounting = mergedMountings[mergedMountings.length - 1];
-        const continuesOnSameBike = previousMounting
-          && previousMounting.bikeId === mounting.bikeId
-          && mounting.startTimestamp <= previousMounting.endTimestamp;
-        if (continuesOnSameBike) previousMounting.endTimestamp = Math.max(previousMounting.endTimestamp, mounting.endTimestamp);
-        else mergedMountings.push({ ...mounting, part });
-      }
-      mergedMountings.forEach(mounting => datedMountingsByBikeId.get(mounting.bikeId).push(mounting));
+      mergeBackToBackMountings(datedMountings)
+        .forEach(mounting => datedMountingsByBikeId.get(mounting.bikeId).push({ ...mounting, part }));
     }
     for (const bike of validBikes) {
       const mountingsByPartType = {};
@@ -448,7 +439,7 @@
 
     const hasMissingDate = part => part.usage.some(usage => usage.dateFrom == null || usage.dateTo == null);
     const usableParts = data.parts.filter(part => {
-      if (!KNOWN_PART_TYPES.has(part.type)) return false; // reported by validateData()
+      if (!PART_TYPES.includes(part.type)) return false; // reported by validateData()
       if (silentlySkippedPartTypes.has(part.type)) return false;
       if (hasMissingDate(part)) {
         console.log(`Ignored part with a null date: ${part.type} "${part.description}"`, part);
@@ -468,29 +459,20 @@
       }));
 
     for (const part of parts) {
-      // Merge back-to-back mountings on the same bike, and link each mounting to its part and bike.
-      const mergedMountings = [];
-      for (const mounting of part.mountings) {
+      // Keep the mountings that are drawn, merge back-to-back ones on the same bike, and link each one
+      // to its part and bike.
+      const drawnMountings = part.mountings.filter(mounting => {
         const bike = bikesById[mounting.bikeId];
-        if (!bike) continue; // reported by validateData()
+        if (!bike) return false; // reported by validateData()
         const bikeType = BIKE_TYPES_BY_KEY[bike.type];
         if (bikeType && !bikeType.lanePartTypes.includes(part.type)) {
           const warning = `${bike.name} (${bike.type}) has no "${part.type}" lane, so "${part.description}" is not shown on it`;
           console.warn(warning);
-          continue;
+          return false;
         }
-        const previousMounting = mergedMountings[mergedMountings.length - 1];
-        const continuesOnSameBike = previousMounting
-          && previousMounting.bikeId === mounting.bikeId
-          && mounting.startTimestamp <= previousMounting.endTimestamp;
-        if (continuesOnSameBike) {
-          previousMounting.endTimestamp = Math.max(previousMounting.endTimestamp, mounting.endTimestamp);
-        } else {
-          mergedMountings.push({ ...mounting, part });
-        }
-      }
-      part.mountings = mergedMountings;
-      if (part.mountings.length === 0) continue;
+        return true;
+      });
+      part.mountings = mergeBackToBackMountings(drawnMountings).map(mounting => ({ ...mounting, part }));
       part.mountings.forEach(mounting => bikesById[mounting.bikeId].mountings.push(mounting));
     }
     const shownParts = parts.filter(part => part.mountings.length > 0);
@@ -742,14 +724,12 @@
   function renderPartRibbons(svg, timestampToY) {
     const ribbonLayer = createSvgElement('g', {}, svg);
     const laneCenterX = (bikeId, laneIndex) => {
-      const bike = timelineModel.bikesById[bikeId];
-      return bike.barLeftX == null ? null : bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[laneIndex] + LANE_WIDTH / 2;
+      const laneLeftX = laneLeftXOf(timelineModel.bikesById[bikeId], laneIndex);
+      return laneLeftX == null ? null : laneLeftX + LANE_WIDTH / 2;
     };
 
     for (const part of timelineModel.parts) {
-      for (let index = 0; index < part.mountings.length - 1; index++) {
-        const previousMounting = part.mountings[index];
-        const nextMounting = part.mountings[index + 1];
+      for (const [previousMounting, nextMounting] of consecutivePairs(part.mountings)) {
         if (previousMounting.bikeId !== nextMounting.bikeId) continue;
         const linkX = laneCenterX(previousMounting.bikeId, previousMounting.laneIndex);
         if (linkX == null) continue;
@@ -788,7 +768,7 @@
         // 1px inset at each end leaves a visible gap between a part and its replacement
         const topY = timestampToY(mounting.endTimestamp) + 1;
         const bottomY = timestampToY(mounting.startTimestamp) - 1;
-        const laneLeftX = bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[mounting.laneIndex];
+        const laneLeftX = laneLeftXOf(bike, mounting.laneIndex);
         const segment = createSvgElement('rect', {
           class: 'part-segment', 'data-part-id': part.id, 'data-bike-id': bike.id,
           x: laneLeftX, y: topY,
@@ -956,13 +936,16 @@
     closePopup();
   });
 
+  // A row of a popup's table: what the period is (a bike's name, or "built"), its dates and its duration.
+  const popupPeriodRowHtml = (labelHtml, period) => `<tr>
+        <td>${labelHtml}</td>
+        <td>${formatPeriodDates(period, ' – ')}</td>
+        <td>${formatDuration(period.endTimestamp - period.startTimestamp)}</td>
+      </tr>`;
+
   function partPopupHtml(part) {
     const bikeName = bikeId => escapeHtml(timelineModel.bikesById[bikeId].name);
-    const mountingRows = part.mountings.map(mounting => `<tr>
-        <td>${bikeName(mounting.bikeId)}</td>
-        <td>${formatPeriodDates(mounting, ' – ')}</td>
-        <td>${formatDuration(mounting.endTimestamp - mounting.startTimestamp)}</td>
-      </tr>`).join('');
+    const mountingRows = part.mountings.map(mounting => popupPeriodRowHtml(bikeName(mounting.bikeId), mounting)).join('');
 
     return `
       <h4><span class="color-swatch" style="background:var(--part-group-${part.partGroup})"></span>${escapeHtml(part.description)}</h4>
@@ -971,11 +954,7 @@
   }
 
   function bikePopupHtml(bike) {
-    const builtPeriodRows = bike.builtPeriods.map(period => `<tr>
-        <td>built</td>
-        <td>${formatPeriodDates(period, ' – ')}</td>
-        <td>${formatDuration(period.endTimestamp - period.startTimestamp)}</td>
-      </tr>`).join('');
+    const builtPeriodRows = bike.builtPeriods.map(period => popupPeriodRowHtml('built', period)).join('');
 
     const bikesPartsCameFrom = new Set();
     const bikesPartsWentTo = new Set();
@@ -1033,9 +1012,7 @@
       .filter(bike => !hiddenBikeIds.has(bike.id) && BIKE_TYPES_BY_KEY[bike.type])
       .flatMap(bike => BIKE_TYPES_BY_KEY[bike.type].lanePartTypes));
     document.getElementById('part-group-legend').innerHTML = Object.entries(PART_GROUPS)
-      .map(([groupKey, group]) => [groupKey, group, LANE_DEFINITIONS
-        .filter(lane => lane.partGroup === groupKey && shownLanePartTypes.has(lane.partType))
-        .map(lane => lane.partType)])
+      .map(([groupKey, group]) => [groupKey, group, partTypesOfGroup(groupKey).filter(partType => shownLanePartTypes.has(partType))])
       .filter(([, , groupPartTypes]) => groupPartTypes.length > 0)
       .map(([groupKey, group, groupPartTypes]) => `<span>
           <span class="color-swatch" style="background:var(--part-group-${groupKey})"></span><span class="part-group-legend-name">${group.label}</span>${escapeHtml(describePartTypes(groupPartTypes))}
@@ -1084,9 +1061,8 @@
   });
 
   function renderPartsTable() {
-    const firstLaneIndexOfType = partType => LANE_DEFINITIONS.findIndex(lane => lane.partType === partType);
     const partsInTableOrder = [...timelineModel.parts].sort((first, second) =>
-      firstLaneIndexOfType(first.type) - firstLaneIndexOfType(second.type)
+      laneIndexByPartType[first.type] - laneIndexByPartType[second.type]
       || first.mountings[0].startTimestamp - second.mountings[0].startTimestamp);
 
     const bodyRows = partsInTableOrder.map(part => {
@@ -1163,11 +1139,10 @@
       };
       // One tbody per part group, headed by the group's colour and name as in the legend.
       const groupBodies = Object.entries(PART_GROUPS).map(([groupKey, group]) => {
-        const groupPartTypes = LANE_DEFINITIONS.filter(lane => lane.partGroup === groupKey).map(lane => lane.partType);
         return `<tbody class="settings-part-group" style="--group-color:var(--part-group-${groupKey})">
             <tr class="settings-part-group-heading"><th colspan="${PART_REQUIREMENTS.length + 1}" scope="rowgroup">
               <span class="color-swatch"></span>${escapeHtml(group.label)}</th></tr>
-            ${groupPartTypes.map(partRow).join('')}
+            ${partTypesOfGroup(groupKey).map(partRow).join('')}
           </tbody>`;
       }).join('');
       return `<section class="settings-section">
@@ -1195,8 +1170,8 @@
     for (const bikeType of BIKE_TYPES) {
       const requirementOf = partType =>
         buildSettingsSections.querySelector(`input[name="${CSS.escape(radioInputName(bikeType, partType))}"]:checked`).value;
-      bikeType.lanePartTypes = CONFIGURABLE_PART_TYPES.filter(partType => requirementOf(partType) !== 'ignored');
-      bikeType.optionalPartTypes = CONFIGURABLE_PART_TYPES.filter(partType => requirementOf(partType) === 'optional');
+      bikeType.lanePartTypes = PART_TYPES.filter(partType => requirementOf(partType) !== 'ignored');
+      bikeType.optionalPartTypes = PART_TYPES.filter(partType => requirementOf(partType) === 'optional');
     }
   }
 

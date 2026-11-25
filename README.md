@@ -7,7 +7,7 @@ An HTML page that shows the history of my bikes and how parts moved between them
 - `index.html`: the page itself.
 - `test-bikes.json`: the test data, shown when the page opens (see [Test data](#test-data)).
 - `styles.css`: all styles, including the dark theme and the print styles.
-- `utils.js`: small helpers with no state of their own: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatPeriodYears`, `formatDuration`, …), `escapeHtml`, text wrapping, `describePartTypes` (the legend's part type lists), `displayNameOf` and `mixWithWhite`.
+- `utils.js`: small helpers with no state of their own: date formatting (`formatMonthYear`, `formatPeriodDates`, `formatPeriodYears`, `formatDuration`, …), `mergeBackToBackMountings` and `consecutivePairs` (a part's mountings), `escapeHtml`, text wrapping, `describePartTypes` (the legend's part type lists), `displayNameOf` and `mixWithWhite`.
 - `timeline.js`: everything else: configuration, validation, the model, the chart and the controls.
 - `test.html` and `test.js`: unit tests for `utils.js`. `test.html` also runs the visual tests (`visual-test.js`, with the reference images `visual-reference.png` and `visual-reference-print.png`). See [Tests](#tests).
 
