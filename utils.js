@@ -1,4 +1,5 @@
-// Small helpers with no state of their own: dates, mountings and text.
+// Helpers with no state of their own and no access to the page: dates, mountings, built periods,
+// layout, text and data validation. They get everything they need as parameters, so test.js can test them.
 // Loaded with a plain <script> tag before timeline.js (and by test.html), so everything here is global.
 
 // =====================================================================
@@ -71,6 +72,83 @@ function mergeBackToBackMountings(mountings) {
 const consecutivePairs = items => items.slice(1).map((item, index) => [items[index], item]);
 
 // =====================================================================
+// Built periods
+// =====================================================================
+
+// The periods ({ startTimestamp, endTimestamp }) during which a bike had a part of every required
+// part type mounted, given its mountings ({ part: { type }, startTimestamp, endTimestamp }).
+function computeBuiltPeriods(mountings, requiredPartTypes) {
+  const changeTimestamps = [...new Set(mountings.flatMap(mounting => [mounting.startTimestamp, mounting.endTimestamp]))]
+    .sort((first, second) => first - second);
+  const builtPeriods = [];
+
+  for (let index = 0; index < changeTimestamps.length - 1; index++) {
+    const intervalStart = changeTimestamps[index];
+    const intervalEnd = changeTimestamps[index + 1];
+
+    const mountedCountByPartType = {};
+    for (const mounting of mountings) {
+      const coversInterval = mounting.startTimestamp <= intervalStart && mounting.endTimestamp >= intervalEnd;
+      if (coversInterval) mountedCountByPartType[mounting.part.type] = (mountedCountByPartType[mounting.part.type] || 0) + 1;
+    }
+    const isBuilt = requiredPartTypes.every(partType => (mountedCountByPartType[partType] || 0) >= 1);
+    if (!isBuilt) continue;
+
+    const previousPeriod = builtPeriods[builtPeriods.length - 1];
+    if (previousPeriod && previousPeriod.endTimestamp === intervalStart) previousPeriod.endTimestamp = intervalEnd;
+    else builtPeriods.push({ startTimestamp: intervalStart, endTimestamp: intervalEnd });
+  }
+  return builtPeriods;
+}
+
+// =====================================================================
+// Layout (x positions, in pixels)
+// =====================================================================
+
+// Lane positions for one bike type, given every lane ({ partType, partGroup }, in order) and the
+// part types the bike type has a lane for: the x offset of each of its lanes (measured from the left
+// edge of the bike bar, indexed like laneDefinitions; undefined for lanes the type doesn't have)
+// and the resulting bar width. Bikes of different types have different widths, but at least
+// minBarWidth: lanes that need less room are centred in the wider bar. Lanes of different part
+// groups are partGroupGap further apart.
+function computeLaneLayout(laneDefinitions, lanePartTypes, { laneWidth, laneGap, partGroupGap, barInnerPadding, minBarWidth }) {
+  const laneOffsetsX = [];
+  let currentX = barInnerPadding;
+  let previousPartGroup = null;
+  laneDefinitions.forEach((lane, laneIndex) => {
+    if (!lanePartTypes.includes(lane.partType)) return;
+    if (previousPartGroup && lane.partGroup !== previousPartGroup) currentX += partGroupGap;
+    laneOffsetsX[laneIndex] = currentX;
+    currentX += laneWidth + laneGap;
+    previousPartGroup = lane.partGroup;
+  });
+  const lanesBarWidth = currentX - laneGap + barInnerPadding;
+  const barWidth = Math.max(lanesBarWidth, minBarWidth);
+  const centringShift = (barWidth - lanesBarWidth) / 2;
+  return { laneOffsetsX: laneOffsetsX.map(offsetX => offsetX + centringShift), barWidth };
+}
+
+// Places the bike bars of bikeTypeGroups ([{ bikes: [{ id, … }] }]) left to right from startX,
+// group by group, with a gap between bikes and a wider one
+// between bike types. Returns the left x of every bar, the x range of every group and the right end.
+function layoutBikeColumns(bikeTypeGroups, startX, gapBetweenBikes, gapBetweenBikeTypes, barWidthOf) {
+  const barLeftXByBikeId = {};
+  const xRangeByGroup = new Map();
+  let currentX = startX;
+  bikeTypeGroups.forEach((group, groupIndex) => {
+    if (groupIndex > 0) currentX += gapBetweenBikeTypes;
+    const leftX = currentX;
+    group.bikes.forEach((bike, bikeIndex) => {
+      if (bikeIndex > 0) currentX += gapBetweenBikes;
+      barLeftXByBikeId[bike.id] = currentX;
+      currentX += barWidthOf(bike);
+    });
+    xRangeByGroup.set(group, { leftX, rightX: currentX });
+  });
+  return { barLeftXByBikeId, xRangeByGroup, rightX: currentX };
+}
+
+// =====================================================================
 // Text
 // =====================================================================
 
@@ -110,3 +188,166 @@ function describePartTypes(partTypes) {
 // The bike's name, or its type label and number (e.g. "MTB 2") when it has none.
 // bikeTypesByKey maps a bike type ("mtb") to its entry in BIKE_TYPES.
 const displayNameOf = (bike, bikeTypesByKey) => bike.name || `${bikeTypesByKey[bike.type].label} ${bike.numberWithinType}`;
+
+// Fits text into maxLength, shortening it with "…" if needed; measureWidth(text) gives the width of
+// a text. Returns null when not even a few characters fit.
+function fitTextIntoLength(text, maxLength, measureWidth) {
+  if (measureWidth(text) <= maxLength) return text;
+  let shortened = text;
+  while (shortened.length > 3 && measureWidth(shortened.trimEnd() + '…') > maxLength) {
+    shortened = shortened.slice(0, -1);
+  }
+  if (shortened.length <= 3) return null;
+  return shortened.trimEnd() + '…';
+}
+
+// =====================================================================
+// Validation: checks the JSON as loaded, before it is processed
+// =====================================================================
+
+const REQUIRED_BIKE_FIELDS = ['id', 'type', 'name'];
+const REQUIRED_PART_FIELDS = ['id', 'type', 'description', 'usage'];
+const REQUIRED_USAGE_FIELDS = ['bikeId', 'dateFrom', 'dateTo'];
+
+// Returns every error found, and the bikes and parts that can be processed: those with all
+// required fields and a known type. Everything else (duplicate ids, overlapping dates, two
+// parts of one type on a bike at once) is reported but still processed. A usage on an
+// unknown bike is reported and left out later, in buildTimelineModel().
+// A usage date may be null (a date still to be found out): the part is then skipped later
+// without an error, see buildTimelineModel().
+// bikeTypes: the bike types with their lanePartTypes (BIKE_TYPES in timeline.js);
+// partTypes: every known part type (PART_TYPES).
+function validateData(data, bikeTypes, partTypes) {
+  const bikeTypesByKey = Object.fromEntries(bikeTypes.map(bikeType => [bikeType.type, bikeType]));
+  const partTypesIgnoredOnEveryBikeType = new Set(partTypes
+    .filter(partType => bikeTypes.every(bikeType => !bikeType.lanePartTypes.includes(partType))));
+  const errors = [];
+  if (data === null || typeof data !== 'object' || !Array.isArray(data.bikes) || !Array.isArray(data.parts)) {
+    errors.push('The JSON has to be an object with a "bikes" list and a "parts" list');
+    return { errors, validBikes: [], validParts: [], note: 'Nothing can be shown.' };
+  }
+
+  const isMissing = value => value === undefined || value === null || value === '';
+  const bikeLabel = (bike, index) => isMissing(bike?.name) ? `Bike #${index + 1}` : `Bike "${bike.name}"`;
+  const partLabel = (part, index) => isMissing(part?.description) ? `Part #${index + 1}` : `Part "${part.description}"`;
+  const withId = (label, item) => isMissing(item?.id) ? label : `${label} (id ${item.id})`;
+
+  // Required fields
+  const validBikes = data.bikes.filter((bike, bikeIndex) => {
+    const missingFields = REQUIRED_BIKE_FIELDS.filter(field => isMissing(bike?.[field]));
+    if (missingFields.length) errors.push(`${withId(bikeLabel(bike, bikeIndex), bike)} has no ${missingFields.join(', ')}`);
+    return missingFields.length === 0;
+  });
+  const partsWithAllFields = data.parts.filter((part, partIndex) => {
+    const label = withId(partLabel(part, partIndex), part);
+    const missingFields = REQUIRED_PART_FIELDS.filter(field => isMissing(part?.[field]));
+    if (missingFields.length) {
+      errors.push(`${label} has no ${missingFields.join(', ')}`);
+      return false;
+    }
+    if (!Array.isArray(part.usage) || part.usage.length === 0) {
+      errors.push(`${label} has an empty usage list`);
+      return false;
+    }
+    let hasCompleteUsage = true;
+    part.usage.forEach((usage, usageIndex) => {
+      // dateFrom and dateTo may be null, but have to be there
+      const missingFields = REQUIRED_USAGE_FIELDS
+        .filter(field => field === 'bikeId' ? isMissing(usage?.[field]) : usage?.[field] === undefined || usage[field] === '');
+      if (missingFields.length) {
+        errors.push(`${label}: usage #${usageIndex + 1} has no ${missingFields.join(', ')}`);
+        hasCompleteUsage = false;
+      }
+    });
+    return hasCompleteUsage;
+  });
+
+  // Duplicate ids (bikes and parts are checked separately: a bike and a part may share an id)
+  const reportDuplicateIds = (items, labelOf, kind) => {
+    const labelsById = new Map();
+    items.forEach((item, index) => {
+      if (isMissing(item?.id)) return;
+      const key = String(item.id);
+      if (!labelsById.has(key)) labelsById.set(key, []);
+      labelsById.get(key).push(labelOf(item, index));
+    });
+    for (const [id, labels] of labelsById) {
+      if (labels.length > 1) errors.push(`${labels.length} ${kind} have the id ${id}: ${labels.join(', ')}`);
+    }
+  };
+  reportDuplicateIds(data.bikes, bikeLabel, 'bikes');
+  reportDuplicateIds(data.parts, partLabel, 'parts');
+
+  // Unknown bike types and part types (the ones in the build settings)
+  validBikes
+    .filter(bike => !bikeTypesByKey[bike.type])
+    .forEach(bike => errors.push(`${withId(bikeLabel(bike), bike)} has unknown bike type "${bike.type}" (known: ${bikeTypes.map(bikeType => bikeType.type).join(', ')})`));
+  const validParts = partsWithAllFields.filter(part => {
+    if (partTypes.includes(part.type)) return true;
+    errors.push(`${withId(partLabel(part), part)} has unknown part type "${part.type}"`);
+    return false;
+  });
+
+  // Overlapping usage dates of one part: on two different bikes at once, or twice on the same bike.
+  // A usage ending on the day the next one starts is not an overlap.
+  const bikeNamesById = new Map(data.bikes.map(bike => [String(bike?.id), bike?.name]));
+  const bikeNameOf = bikeId => bikeNamesById.get(String(bikeId)) ?? `unknown bike ${bikeId}`;
+  const describeUsage = usage => `${bikeNameOf(usage.bikeId)} ${usage.dateFrom} → ${usage.dateTo}`;
+  for (const part of validParts) {
+    const datedUsages = part.usage
+      .filter(usage => usage.dateFrom != null && usage.dateTo != null)
+      .map(usage => ({ usage, startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) }));
+    for (let firstIndex = 0; firstIndex < datedUsages.length; firstIndex++) {
+      for (let secondIndex = firstIndex + 1; secondIndex < datedUsages.length; secondIndex++) {
+        const first = datedUsages[firstIndex];
+        const second = datedUsages[secondIndex];
+        const overlaps = first.startTimestamp < second.endTimestamp && second.startTimestamp < first.endTimestamp;
+        if (!overlaps) continue;
+        const sameBike = String(first.usage.bikeId) === String(second.usage.bikeId);
+        errors.push(`${withId(partLabel(part), part)} ${sameBike ? 'has overlapping usage dates' : 'is on two bikes at once'}: `
+          + `${describeUsage(first.usage)} and ${describeUsage(second.usage)}`);
+      }
+    }
+  }
+
+  // Usages on a bike that isn't in the data (or was left out above), and two parts of the same
+  // type on one bike at the same time: each part type has one lane, so they would be drawn on
+  // top of each other. Only parts that are drawn are compared, like in buildTimelineModel():
+  // not parts with a null date, not part types ignored on every bike type, and not part types
+  // without a lane on that bike's type. Back-to-back usages of one part on the same bike count
+  // as one mounting.
+  const bikeTypeByBikeId = new Map(validBikes.map(bike => [String(bike.id), bikeTypesByKey[bike.type]]));
+  const datedMountingsByBikeId = new Map(validBikes.map(bike => [String(bike.id), []]));
+  for (const part of validParts) {
+    const isDrawn = !partTypesIgnoredOnEveryBikeType.has(part.type)
+      && part.usage.every(usage => usage.dateFrom != null && usage.dateTo != null);
+    const datedMountings = [];
+    for (const usage of part.usage) {
+      if (!datedMountingsByBikeId.has(String(usage.bikeId))) {
+        errors.push(`Part "${part.description}" references unknown bike ${usage.bikeId}`);
+        continue;
+      }
+      const bikeType = bikeTypeByBikeId.get(String(usage.bikeId));
+      if (!isDrawn || (bikeType && !bikeType.lanePartTypes.includes(part.type))) continue;
+      datedMountings.push({ bikeId: String(usage.bikeId), startTimestamp: parseDate(usage.dateFrom), endTimestamp: parseDate(usage.dateTo) });
+    }
+    mergeBackToBackMountings(datedMountings)
+      .forEach(mounting => datedMountingsByBikeId.get(mounting.bikeId).push({ ...mounting, part }));
+  }
+  for (const bike of validBikes) {
+    const mountingsByPartType = {};
+    datedMountingsByBikeId.get(String(bike.id)).forEach(mounting => (mountingsByPartType[mounting.part.type] ||= []).push(mounting));
+    for (const partType in mountingsByPartType) {
+      let occupiedUntil = -Infinity;
+      const mountingsInOrder = mountingsByPartType[partType].sort((first, second) => first.startTimestamp - second.startTimestamp);
+      for (const mounting of mountingsInOrder) {
+        if (mounting.startTimestamp < occupiedUntil) {
+          errors.push(`${bike.name}: two × ${partType} at ${formatIsoDate(mounting.startTimestamp)} (${mounting.part.description})`);
+        }
+        occupiedUntil = Math.max(occupiedUntil, mounting.endTimestamp);
+      }
+    }
+  }
+
+  return { errors, validBikes, validParts };
+}

@@ -108,6 +108,50 @@ test('consecutivePairs', () => {
   assertEqual(consecutivePairs([]), []);
 });
 
+// a mounting of a part of the given type, as computeBuiltPeriods() gets it
+const mountingOfType = (partType, dateFrom, dateTo) => ({ part: { type: partType }, ...makePeriod(dateFrom, dateTo) });
+test('computeBuiltPeriods: built while every required part type is mounted', () => {
+  const mountings = [mountingOfType('frame', '2014-01-01', '2016-01-01'), mountingOfType('fork', '2015-01-01', '2017-01-01')];
+  assertEqual(computeBuiltPeriods(mountings, ['frame', 'fork']), [makePeriod('2015-01-01', '2016-01-01')]);
+  assertEqual(computeBuiltPeriods(mountings, ['frame']), [makePeriod('2014-01-01', '2016-01-01')]);
+});
+test('computeBuiltPeriods: a part replaced on the same day keeps one period', () => {
+  const mountings = [mountingOfType('frame', '2014-01-01', '2016-01-01'),
+    mountingOfType('fork', '2014-01-01', '2015-01-01'), mountingOfType('fork', '2015-01-01', '2016-01-01')];
+  assertEqual(computeBuiltPeriods(mountings, ['frame', 'fork']), [makePeriod('2014-01-01', '2016-01-01')]);
+});
+test('computeBuiltPeriods: a missing part splits the period, or there is none', () => {
+  const mountings = [mountingOfType('frame', '2014-01-01', '2020-01-01'),
+    mountingOfType('fork', '2015-01-01', '2016-01-01'), mountingOfType('fork', '2018-01-01', '2019-01-01')];
+  assertEqual(computeBuiltPeriods(mountings, ['frame', 'fork']), [makePeriod('2015-01-01', '2016-01-01'), makePeriod('2018-01-01', '2019-01-01')]);
+  assertEqual(computeBuiltPeriods(mountings, ['frame', 'fork', 'stem']), []);
+  assertEqual(computeBuiltPeriods([], ['frame']), []);
+});
+
+const TEST_LANES = [{ partType: 'frame', partGroup: 'chassis' }, { partType: 'fork', partGroup: 'chassis' }, { partType: 'stem', partGroup: 'cockpit' }];
+const TEST_LANE_SPACING = { laneWidth: 5, laneGap: 1, partGroupGap: 3, barInnerPadding: 5, minBarWidth: 0 };
+test('computeLaneLayout: lanes one gap apart, a wider gap between part groups', () => {
+  assertEqual(computeLaneLayout(TEST_LANES, ['frame', 'fork', 'stem'], TEST_LANE_SPACING), { laneOffsetsX: [5, 11, 20], barWidth: 30 });
+});
+test('computeLaneLayout: no offset for a lane the bike type doesn\'t have', () => {
+  const layout = computeLaneLayout(TEST_LANES, ['frame', 'stem'], TEST_LANE_SPACING);
+  assertEqual(layout.laneOffsetsX[0], 5);
+  assertEqual(1 in layout.laneOffsetsX, false);
+  assertEqual(layout.laneOffsetsX[2], 14);
+  assertEqual(layout.barWidth, 24);
+});
+test('computeLaneLayout: lanes centred in a bar widened to minBarWidth', () => {
+  assertEqual(computeLaneLayout(TEST_LANES, ['frame', 'fork', 'stem'], { ...TEST_LANE_SPACING, minBarWidth: 40 }), { laneOffsetsX: [10, 16, 25], barWidth: 40 });
+});
+test('layoutBikeColumns: bars left to right, a wider gap between bike types', () => {
+  const bikeTypeGroups = [{ bikes: [{ id: 'a' }, { id: 'b' }] }, { bikes: [{ id: 'c' }] }];
+  const columns = layoutBikeColumns(bikeTypeGroups, 10, 2, 5, bike => bike.id === 'b' ? 20 : 10);
+  assertEqual(columns.barLeftXByBikeId, { a: 10, b: 22, c: 47 });
+  assertEqual(columns.xRangeByGroup.get(bikeTypeGroups[0]), { leftX: 10, rightX: 42 });
+  assertEqual(columns.xRangeByGroup.get(bikeTypeGroups[1]), { leftX: 47, rightX: 57 });
+  assertEqual(columns.rightX, 57);
+});
+
 test('escapeHtml', () => {
   assertEqual(escapeHtml(`<a href="x">Tom & Jerry</a>`), '&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&lt;/a&gt;');
   assertEqual(escapeHtml(`Haro Backtrail X1 frame 20.5" it's`), 'Haro Backtrail X1 frame 20.5&quot; it\'s');
@@ -149,6 +193,87 @@ test('describePartTypes: listed in full when front and rear don\'t pair up', () 
   assertEqual(describePartTypes(['rear brake', 'rear brake lever']), 'rear brake · rear brake lever');
   assertEqual(describePartTypes(['front brake', 'rear brake', 'rear disc']), 'front brake · rear brake · rear disc');
   assertEqual(describePartTypes(['front rim', 'rear rim', 'seat']), 'front rim · rear rim · seat');
+});
+test('fitTextIntoLength: text that fits stays as it is', () => {
+  const characterCount = text => text.length;
+  assertEqual(fitTextIntoLength('Rear rim', 10, characterCount), 'Rear rim');
+  assertEqual(fitTextIntoLength('Rear rim', 8, characterCount), 'Rear rim');
+});
+test('fitTextIntoLength: longer text is shortened with "…", or null when it can\'t be', () => {
+  const characterCount = text => text.length;
+  assertEqual(fitTextIntoLength('Production Privée', 8, characterCount), 'Product…');
+  assertEqual(fitTextIntoLength('Big bike frame', 5, characterCount), 'Big…'); // no space before the "…"
+  assertEqual(fitTextIntoLength('Production', 3, characterCount), null);
+});
+
+// validateData() with one bike type that has a frame and a fork lane; "seat" is ignored on every bike type.
+const TEST_BIKE_TYPES = [{ type: 'bmx', lanePartTypes: ['frame', 'fork'] }];
+const TEST_PART_TYPES = ['frame', 'fork', 'seat'];
+const validationErrorsOf = data => validateData(data, TEST_BIKE_TYPES, TEST_PART_TYPES).errors;
+const testBike = (id, name, type = 'bmx') => ({ id, type, name });
+const testPart = (id, type, description, ...usage) => ({ id, type, description, usage });
+const testUsage = (bikeId, dateFrom, dateTo) => ({ bikeId, dateFrom, dateTo });
+test('validateData: valid data has no errors', () => {
+  const data = { bikes: [testBike('b1', 'Haro')], parts: [testPart('p1', 'frame', 'Haro frame', testUsage('b1', '2014-01-01', '2016-01-01'))] };
+  assertEqual(validateData(data, TEST_BIKE_TYPES, TEST_PART_TYPES), { errors: [], validBikes: data.bikes, validParts: data.parts });
+});
+test('validateData: not an object with bikes and parts', () => {
+  for (const data of [null, [], { bikes: [] }]) {
+    assertEqual(validateData(data, TEST_BIKE_TYPES, TEST_PART_TYPES),
+      { errors: ['The JSON has to be an object with a "bikes" list and a "parts" list'], validBikes: [], validParts: [], note: 'Nothing can be shown.' });
+  }
+});
+test('validateData: missing fields leave the bike or part out', () => {
+  const result = validateData({
+    bikes: [{ id: 'b1', type: 'bmx' }, testBike('b2', 'Haro')],
+    parts: [{ id: 'p1', type: 'frame', usage: [] }, testPart('p2', 'fork', 'Fork'),
+      testPart('p3', 'frame', 'Frame', { bikeId: 'b2', dateFrom: '2014-01-01' })],
+  }, TEST_BIKE_TYPES, TEST_PART_TYPES);
+  assertEqual(result.errors, ['Bike #1 (id b1) has no name', 'Part #1 (id p1) has no description',
+    'Part "Fork" (id p2) has an empty usage list', 'Part "Frame" (id p3): usage #1 has no dateTo']);
+  assertEqual(result.validBikes.map(bike => bike.id), ['b2']);
+  assertEqual(result.validParts, []);
+});
+test('validateData: unknown bike type and part type', () => {
+  const result = validateData({
+    bikes: [testBike('b1', 'Duo', 'tandem')],
+    parts: [testPart('p1', 'bell', 'Bell', testUsage('b1', '2014-01-01', '2016-01-01'))],
+  }, TEST_BIKE_TYPES, TEST_PART_TYPES);
+  assertEqual(result.errors, ['Bike "Duo" (id b1) has unknown bike type "tandem" (known: bmx)', 'Part "Bell" (id p1) has unknown part type "bell"']);
+  assertEqual(result.validParts, []);
+});
+test('validateData: duplicate ids and unknown bikes', () => {
+  assertEqual(validationErrorsOf({
+    bikes: [testBike('b1', 'Haro'), testBike('b1', 'Mongoose')],
+    parts: [testPart('p1', 'frame', 'Frame', testUsage('b9', '2014-01-01', '2016-01-01'))],
+  }), ['2 bikes have the id b1: Bike "Haro", Bike "Mongoose"', 'Part "Frame" references unknown bike b9']);
+});
+test('validateData: a part on two bikes at once, or twice on one bike', () => {
+  assertEqual(validationErrorsOf({
+    bikes: [testBike('b1', 'Haro'), testBike('b2', 'Mongoose')],
+    parts: [
+      testPart('p1', 'frame', 'Frame', testUsage('b1', '2014-01-01', '2016-01-01'), testUsage('b2', '2015-01-01', '2017-01-01')),
+      testPart('p2', 'fork', 'Fork', testUsage('b1', '2014-01-01', '2016-01-01'), testUsage('b1', '2015-01-01', '2017-01-01')),
+      testPart('p3', 'fork', 'Fork from Mongoose', testUsage('b2', '2014-01-01', '2015-01-01'), testUsage('b1', '2015-01-01', '2016-01-01')),
+    ],
+  }), [
+    'Part "Frame" (id p1) is on two bikes at once: Haro 2014-01-01 → 2016-01-01 and Mongoose 2015-01-01 → 2017-01-01',
+    'Part "Fork" (id p2) has overlapping usage dates: Haro 2014-01-01 → 2016-01-01 and Haro 2015-01-01 → 2017-01-01',
+    'Haro: two × fork at 2015-01-01 (Fork from Mongoose)',
+  ]);
+});
+test('validateData: two parts of one type on a bike at once, only for drawn parts', () => {
+  assertEqual(validationErrorsOf({
+    bikes: [testBike('b1', 'Haro')],
+    parts: [
+      testPart('p1', 'frame', 'First frame', testUsage('b1', '2014-01-01', '2016-01-01')),
+      testPart('p2', 'frame', 'Second frame', testUsage('b1', '2015-01-01', '2017-01-01')),
+      testPart('p3', 'frame', 'Next frame', testUsage('b1', '2017-01-01', '2018-01-01')), // starts as the second one ends
+      testPart('p4', 'frame', 'Frame with a null date', testUsage('b1', '2015-06-01', null)),
+      testPart('p5', 'seat', 'First seat', testUsage('b1', '2014-01-01', '2016-01-01')), // seat: ignored on every bike type
+      testPart('p6', 'seat', 'Second seat', testUsage('b1', '2015-01-01', '2017-01-01')),
+    ],
+  }), ['Haro: two × frame at 2015-01-01 (Second frame)']);
 });
 
 const summary = document.getElementById('summary');
