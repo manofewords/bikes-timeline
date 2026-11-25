@@ -129,17 +129,17 @@
   const PART_LABEL_FONT_SIZE = LANE_WIDTH * 0.8;  // print only: part descriptions written along the strips
   const PART_LABEL_END_PADDING = 2;               // space between a label and the ends of its strip
 
-  const SCREEN_LANE_SPACING = { laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING, minBarWidth: MIN_BAR_WIDTH };
-  let screenLaneLayoutByBikeType; // set by applyBikeTypeSettings()
+  let laneLayoutByBikeType; // set by applyBikeTypeSettings()
   // Left x of a lane of a placed bike on the chart, or null for a hidden bike (not placed).
   const laneLeftXOf = (bike, laneIndex) =>
-    bike.barLeftX == null ? null : bike.barLeftX + screenLaneLayoutByBikeType[bike.type].laneOffsetsX[laneIndex];
+    bike.barLeftX == null ? null : bike.barLeftX + laneLayoutByBikeType[bike.type].laneOffsetsX[laneIndex];
 
   // Recomputes everything that depends on the lanes of each bike type. Call it after changing
   // lanePartTypes or optionalPartTypes, then rebuild the model.
   function applyBikeTypeSettings() {
-    screenLaneLayoutByBikeType = Object.fromEntries(
-      BIKE_TYPES.map(bikeType => [bikeType.type, computeLaneLayout(LANE_DEFINITIONS, bikeType.lanePartTypes, SCREEN_LANE_SPACING)]));
+    const laneSpacing = { laneWidth: LANE_WIDTH, laneGap: LANE_GAP, partGroupGap: PART_GROUP_GAP, barInnerPadding: BAR_INNER_PADDING, minBarWidth: MIN_BAR_WIDTH };
+    laneLayoutByBikeType = Object.fromEntries(
+      BIKE_TYPES.map(bikeType => [bikeType.type, computeLaneLayout(LANE_DEFINITIONS, bikeType.lanePartTypes, laneSpacing)]));
     silentlySkippedPartTypes = new Set(partTypesIgnoredOnEveryBikeType(BIKE_TYPES, PART_TYPES));
   }
   applyBikeTypeSettings();
@@ -268,7 +268,7 @@
     const shownBikeTypeGroups = timelineModel.bikeTypeGroups
       .map(group => ({ ...group, bikes: group.bikes.filter(bike => !hiddenBikeIds.has(bike.id)) }))
       .filter(group => group.bikes.length > 0);
-    const barWidthOf = bike => screenLaneLayoutByBikeType[bike.type].barWidth;
+    const barWidthOf = bike => laneLayoutByBikeType[bike.type].barWidth;
     const columns = layoutBikeColumns(shownBikeTypeGroups, YEAR_AXIS_WIDTH + YEAR_AXIS_TO_FIRST_BAR, GAP_BETWEEN_BIKES, GAP_BETWEEN_BIKE_TYPES, barWidthOf);
     timelineModel.bikes.forEach(bike => { bike.barLeftX = null; });
     for (const group of shownBikeTypeGroups) {
